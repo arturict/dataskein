@@ -64,6 +64,7 @@ export function LandingPage() {
 
           <div
             className="hero-visual"
+            role="img"
             aria-label="A visual data recipe from source rows to a chart"
           >
             <div className="visual-window">

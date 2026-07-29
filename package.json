@@ -1,6 +1,6 @@
 {
   "name": "dataskein",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "A local-first, reproducible workspace for exploring CSV, JSON, and Parquet files.",
   "license": "MIT",

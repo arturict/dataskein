@@ -7,6 +7,7 @@ test('landing page has no automatically detectable WCAG A or AA violations', asy
   await page.goto('/');
   const results = await new AxeBuilder({ page }).withTags(wcagTags).analyze();
   expect(results.violations).toEqual([]);
+  expect(results.incomplete.filter(({ id }) => id === 'aria-prohibited-attr')).toEqual([]);
 });
 
 test('loaded workspace has no automatically detectable WCAG A or AA violations', async ({
