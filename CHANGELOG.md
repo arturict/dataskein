@@ -6,6 +6,13 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-07-29
+
+### Fixed
+
+- Serve the `/app` workspace entry point through Vercel's SPA rewrite instead of returning a production 404.
+- Add a hosting configuration regression test for both `/app` and nested workspace routes.
+
 ## [0.1.3] - 2026-07-29
 
 ### Fixed
@@ -43,7 +50,8 @@ All notable changes are documented here. The format follows
 - Local-first CSP, service worker, landing page, and OSS project documentation
 - Unit, integration, E2E, accessibility, security, and large-input gates
 
-[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/arturict/dataskein/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/arturict/dataskein/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/arturict/dataskein/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/arturict/dataskein/compare/v0.1.0...v0.1.1
