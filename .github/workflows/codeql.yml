@@ -4,15 +4,49 @@ on:
   push:
     branches:
       - main
+    paths:
+      - '**/*.cjs'
+      - '**/*.cts'
+      - '**/*.htm'
+      - '**/*.html'
+      - '**/*.js'
+      - '**/*.jsx'
+      - '**/*.mjs'
+      - '**/*.mts'
+      - '**/*.ts'
+      - '**/*.tsx'
+      - '.github/workflows/codeql.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'tsconfig*.json'
   pull_request:
     branches:
       - main
+    paths:
+      - '**/*.cjs'
+      - '**/*.cts'
+      - '**/*.htm'
+      - '**/*.html'
+      - '**/*.js'
+      - '**/*.jsx'
+      - '**/*.mjs'
+      - '**/*.mts'
+      - '**/*.ts'
+      - '**/*.tsx'
+      - '.github/workflows/codeql.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'tsconfig*.json'
   schedule:
     - cron: '17 4 * * 3'
 
 permissions:
   contents: read
   security-events: write
+
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   analyze:

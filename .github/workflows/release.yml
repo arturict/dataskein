@@ -1,20 +1,31 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - v*
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish
+        required: true
+        type: string
 
 permissions:
+  actions: read
   contents: write
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
     steps:
       - name: Check out tagged source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          ref: refs/tags/${{ inputs.tag }}
       - name: Install pnpm
         uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
         with:
@@ -24,27 +35,52 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - name: Verify tag matches package version
+      - name: Verify release evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
         shell: bash
         run: |
-          test "${GITHUB_REF_NAME}" = "v$(node -p "require('./package.json').version")"
+          test "${RELEASE_TAG}" = "v$(node -p "require('./package.json').version")"
+          target_sha="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+          git merge-base --is-ancestor "${target_sha}" origin/main
+
+          successful_runs="$(
+            TARGET_SHA="${target_sha}" gh api --method GET \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs" \
+              -f head_sha="${target_sha}" \
+              -f status=success \
+              -f per_page=100 \
+              --jq '[
+                .workflow_runs[] |
+                select(
+                  .head_sha == env.TARGET_SHA and
+                  (.event == "push" or .event == "workflow_dispatch")
+                )
+              ] | length'
+          )"
+          if [ "${successful_runs}" -lt 1 ]; then
+            echo "::error::No successful CI run exists for ${target_sha}."
+            exit 1
+          fi
+
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "::error::Release ${RELEASE_TAG} already exists."
+            exit 1
+          fi
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
-      - name: Run full gates
-        run: |
-          pnpm check
-          pnpm test:e2e
-          pnpm audit --audit-level high
+      - name: Audit production and development dependencies
+        run: pnpm audit --audit-level high
       - name: Build deterministic release files
         run: pnpm release:artifact
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
         shell: bash
         run: |
-          gh release create "${GITHUB_REF_NAME}" artifacts/* \
+          gh release create "${RELEASE_TAG}" artifacts/* \
             --verify-tag \
-            --title "DataSkein ${GITHUB_REF_NAME}" \
-            --notes-file "docs/releases/${GITHUB_REF_NAME}.md"
+            --title "DataSkein ${RELEASE_TAG}" \
+            --notes-file "docs/releases/${RELEASE_TAG}.md"
