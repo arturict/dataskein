@@ -37,17 +37,37 @@ async function listFiles(directory, prefix = '') {
   return files;
 }
 
+const textExtensions = new Set([
+  '.css',
+  '.html',
+  '.js',
+  '.json',
+  '.md',
+  '.svg',
+  '.txt',
+  '.webmanifest',
+  '.xml',
+]);
+
+async function reproducibleBytes(filename) {
+  const bytes = await readFile(filename);
+  if (!textExtensions.has(path.extname(filename).toLowerCase())) {
+    return new Uint8Array(bytes);
+  }
+  return new TextEncoder().encode(bytes.toString('utf8').replace(/\r\n/g, '\n'));
+}
+
 const fixedTime = new Date('1980-01-01T00:00:00.000Z');
 const zipEntries = {};
 for (const file of await listFiles(path.join(root, 'dist'))) {
   zipEntries[`dataskein-${version}/${file.relative}`] = [
-    new Uint8Array(await readFile(file.absolute)),
+    await reproducibleBytes(file.absolute),
     { mtime: fixedTime },
   ];
 }
 for (const name of ['LICENSE', 'README.md']) {
   zipEntries[`dataskein-${version}/${name}`] = [
-    new Uint8Array(await readFile(path.join(root, name))),
+    await reproducibleBytes(path.join(root, name)),
     { mtime: fixedTime },
   ];
 }

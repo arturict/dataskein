@@ -6,6 +6,14 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-29
+
+### Fixed
+
+- Removed non-reproducible source-map paths from the static production build.
+- Normalized text bytes in release archives so Windows and Linux packaging
+  produce the same checksum.
+
 ## [0.1.0] - 2026-07-29
 
 ### Added
@@ -21,5 +29,6 @@ All notable changes are documented here. The format follows
 - Local-first CSP, service worker, landing page, and OSS project documentation
 - Unit, integration, E2E, accessibility, security, and large-input gates
 
-[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/arturict/dataskein/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/arturict/dataskein/releases/tag/v0.1.0
