@@ -6,6 +6,18 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-07-29
+
+### Changed
+
+- Rebuilt the landing page around a real product view, a clearer file-to-answer narrative, detailed workflow visuals, honest product boundaries, local-only architecture, and a compact FAQ.
+- Refreshed the repository screenshot and social preview to match the new public design.
+
+### Fixed
+
+- Isolated screenshot and E2E preview servers on strict, dedicated ports so unrelated local services cannot be mistaken for DataSkein.
+- Increased contrast and corrected diagram semantics across the new landing page.
+
 ## [0.1.5] - 2026-07-29
 
 ### Fixed
@@ -56,7 +68,8 @@ All notable changes are documented here. The format follows
 - Local-first CSP, service worker, landing page, and OSS project documentation
 - Unit, integration, E2E, accessibility, security, and large-input gates
 
-[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/arturict/dataskein/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/arturict/dataskein/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/arturict/dataskein/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/arturict/dataskein/compare/v0.1.2...v0.1.3

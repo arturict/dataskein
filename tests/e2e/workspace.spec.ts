@@ -91,7 +91,7 @@ test('source-file workflow makes no cross-origin requests', async ({ page }) => 
   const externalRequests: string[] = [];
   page.on('request', (request) => {
     const url = new URL(request.url());
-    if (url.origin !== 'http://127.0.0.1:4173') {
+    if (url.origin !== 'http://127.0.0.1:4184') {
       externalRequests.push(request.url());
     }
   });

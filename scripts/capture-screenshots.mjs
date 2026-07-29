@@ -6,7 +6,7 @@ import { chromium } from '@playwright/test';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const docsAssets = path.join(root, 'docs', 'assets');
-const baseUrl = 'http://127.0.0.1:4173';
+const baseUrl = 'http://127.0.0.1:4183';
 const packageManagerScript = process.env.npm_execpath;
 if (!packageManagerScript) {
   throw new Error('Run this script through pnpm.');
@@ -21,10 +21,14 @@ if (build.status !== 0) {
 }
 
 await mkdir(docsAssets, { recursive: true });
-const server = spawn(process.execPath, [packageManagerScript, 'preview', '--host', '127.0.0.1'], {
-  cwd: root,
-  stdio: 'ignore',
-});
+const server = spawn(
+  process.execPath,
+  [packageManagerScript, 'preview', '--host', '127.0.0.1', '--port', '4183', '--strictPort'],
+  {
+    cwd: root,
+    stdio: 'ignore',
+  },
+);
 
 async function waitForServer() {
   for (let attempt = 0; attempt < 60; attempt += 1) {
