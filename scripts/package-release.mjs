@@ -57,7 +57,7 @@ async function reproducibleBytes(filename) {
   return new TextEncoder().encode(bytes.toString('utf8').replace(/\r\n/g, '\n'));
 }
 
-const fixedTime = new Date('1980-01-01T00:00:00.000Z');
+const fixedTime = new Date(1980, 0, 1, 0, 0, 0);
 const zipEntries = {};
 for (const file of await listFiles(path.join(root, 'dist'))) {
   zipEntries[`dataskein-${version}/${file.relative}`] = [

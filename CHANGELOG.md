@@ -6,6 +6,13 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-07-29
+
+### Fixed
+
+- Made deterministic ZIP timestamps independent of the build machine's local
+  timezone.
+
 ## [0.1.1] - 2026-07-29
 
 ### Fixed
@@ -29,6 +36,7 @@ All notable changes are documented here. The format follows
 - Local-first CSP, service worker, landing page, and OSS project documentation
 - Unit, integration, E2E, accessibility, security, and large-input gates
 
-[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/arturict/dataskein/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/arturict/dataskein/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/arturict/dataskein/releases/tag/v0.1.0

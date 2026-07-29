@@ -1,4 +1,4 @@
-const CACHE = 'dataskein-v0.1.1';
+const CACHE = 'dataskein-v0.1.2';
 const SHELL = ['/', '/manifest.webmanifest', '/favicon.svg'];
 
 self.addEventListener('install', (event) => {
