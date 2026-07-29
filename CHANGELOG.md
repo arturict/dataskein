@@ -6,6 +6,17 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Show real import and query stages instead of an indeterminate loading message.
+- Add a resumable first-result checklist that links directly to profiling, recipe, chart, and dashboard surfaces.
+- Explain offline state, browser-safe limits, and recovery actions for import, recipe, and export failures in context.
+- Verify the compact mobile workspace for overflow and console errors.
+
+### Changed
+
+- Make the empty workspace outcome-first with a prominent local-file drop zone, safe sample path, privacy signal, and next-step preview.
+
 ## [0.1.6] - 2026-07-29
 
 ### Changed

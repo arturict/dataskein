@@ -38,7 +38,8 @@ The test suite includes:
 - malformed JSON and spoofed Parquet;
 - CSV formula-injection payloads;
 - Axe WCAG A and AA checks;
-- narrow viewport overflow;
+- narrow viewport overflow and browser console errors;
+- loaded-session offline state and retained local results;
 - a request listener proving that a local source workflow makes no
   cross-origin requests.
 

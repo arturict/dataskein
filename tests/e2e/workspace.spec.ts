@@ -12,6 +12,7 @@ test('sample journey profiles, filters, joins, charts, and exports a dashboard',
     timeout: 45_000,
   });
   await expect(page.getByRole('table')).toHaveAttribute('aria-rowcount', '12');
+  await expect(page.getByText('1/3 complete')).toBeVisible();
 
   await page.getByRole('tab', { name: /Recipe/ }).click();
   const filterControl = page.locator('details').filter({ hasText: 'Filter rows' });
@@ -22,6 +23,7 @@ test('sample journey profiles, filters, joins, charts, and exports a dashboard',
   await expect(page.getByRole('status')).toContainText('Previewing 9 of 9 rows', {
     timeout: 30_000,
   });
+  await expect(page.getByText('2/3 complete')).toBeVisible();
 
   const joinControl = page.locator('details').filter({ hasText: 'Join another source' });
   await joinControl.locator('summary').click();
@@ -44,6 +46,7 @@ test('sample journey profiles, filters, joins, charts, and exports a dashboard',
   await expect(page.getByText('4 groups')).toBeVisible({ timeout: 20_000 });
   await page.getByRole('button', { name: 'Pin to dashboard' }).click();
   await expect(page.getByRole('heading', { name: 'Won revenue by region' })).toBeVisible();
+  await expect(page.getByText('3/3 complete')).toBeVisible();
 
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export standalone HTML' }).click();
@@ -84,6 +87,7 @@ test('spoofed file type is rejected before DuckDB opens it', async ({ page }) =>
     buffer: Buffer.from('PAR1<script>alert(1)</script>'),
   });
   await expect(page.getByRole('alert')).toContainText('does not contain a valid Parquet signature');
+  await expect(page.getByRole('button', { name: 'Choose another file' })).toBeVisible();
 });
 
 test('source-file workflow makes no cross-origin requests', async ({ page }) => {
@@ -100,4 +104,48 @@ test('source-file workflow makes no cross-origin requests', async ({ page }) => 
     timeout: 45_000,
   });
   expect(externalRequests).toEqual([]);
+});
+
+test('loaded workspace explains offline state without losing the local result', async ({
+  context,
+  page,
+}) => {
+  await page.goto('/app?sample=1');
+  await expect(page.getByRole('status')).toContainText('Previewing 12 of 12 rows', {
+    timeout: 45_000,
+  });
+  await context.setOffline(true);
+  await expect(page.getByText('You are offline.')).toBeVisible();
+  await expect(
+    page.getByText('Sources already open in this tab can still be explored locally.'),
+  ).toBeVisible();
+  await expect(page.getByRole('table')).toHaveAttribute('aria-rowcount', '12');
+  await context.setOffline(false);
+});
+
+test('compact mobile workspace stays usable without overflow or console errors', async ({
+  page,
+}) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
+    }
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/app?sample=1');
+  await expect(page.getByRole('status')).toContainText('Previewing 12 of 12 rows', {
+    timeout: 45_000,
+  });
+  await expect(page.getByRole('heading', { name: 'quarterly-sales.csv' })).toBeVisible();
+  await page.getByRole('tab', { name: /Recipe/ }).click();
+  await expect(page.locator('details').filter({ hasText: 'Filter rows' })).toBeVisible();
+  const dimensions = await page.evaluate(() => ({
+    body: document.body.scrollWidth,
+    document: document.documentElement.scrollWidth,
+    viewport: window.innerWidth,
+  }));
+  expect(dimensions.body).toBeLessThanOrEqual(dimensions.viewport);
+  expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport);
+  expect(consoleErrors).toEqual([]);
 });

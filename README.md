@@ -44,6 +44,8 @@ The evidence, competitor comparison, and scope decision are documented in
 - Formula-neutralized CSV export
 - Portable SQL recipe export with source names and SHA-256 fingerprints
 - Standalone HTML dashboard export containing only aggregated chart data
+- Stage-based local import and query progress with contextual recovery actions
+- A resumable first-result guide and explicit loaded-session offline state
 - A single browser worker, a 1 GB per-file limit, and a 1 GB query memory cap
 - No account, analytics, cookies, upload endpoint, or remote database connector
 
@@ -76,7 +78,8 @@ pnpm release:artifact
 The E2E suite covers the complete sample journey, JSON and JSONL, an Apache
 Parquet interoperability fixture, a 64 MiB CSV, malformed input, file-type
 spoofing, spreadsheet-formula neutralization, accessibility, responsive layout,
-and the absence of cross-origin requests during a source-file workflow.
+offline behavior, mobile console and overflow checks, and the absence of
+cross-origin requests during a source-file workflow.
 
 More detail is in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 

@@ -14,6 +14,12 @@ const BUNDLES: duckdb.DuckDBBundles = {
   },
 };
 
+export type LoadFileProgress = {
+  label: string;
+  current: number;
+  total: number;
+};
+
 function normalizeValue(value: unknown): unknown {
   if (typeof value === 'bigint') {
     const asNumber = Number(value);
@@ -124,12 +130,17 @@ export class DataEngine {
     return { database: this.database, connection: this.connection };
   }
 
-  async loadFile(file: File, kind: FileKind): Promise<Dataset> {
+  async loadFile(
+    file: File,
+    kind: FileKind,
+    reportProgress?: (progress: LoadFileProgress) => void,
+  ): Promise<Dataset> {
     const { database, connection } = await this.ready();
     const id = crypto.randomUUID();
     const registeredName = `source_${id.replaceAll('-', '_')}.${kind}`;
     const tableName = `dataset_${id.replaceAll('-', '_')}`;
 
+    reportProgress?.({ label: 'Register file with the local worker', current: 1, total: 4 });
     await database.registerFileHandle(
       registeredName,
       file,
@@ -138,6 +149,7 @@ export class DataEngine {
     );
 
     try {
+      reportProgress?.({ label: 'Read rows and validate structure', current: 2, total: 4 });
       await connection.query(
         `CREATE VIEW ${quoteIdentifier(tableName)} AS SELECT * FROM ${readerFor(
           kind,
@@ -147,9 +159,11 @@ export class DataEngine {
       const countRows = normalizeRows(
         await connection.query(`SELECT COUNT(*) AS row_count FROM ${quoteIdentifier(tableName)}`),
       );
+      reportProgress?.({ label: 'Detect schema and column types', current: 3, total: 4 });
       const described = normalizeRows(
         await connection.query(`DESCRIBE SELECT * FROM ${quoteIdentifier(tableName)}`),
       );
+      reportProgress?.({ label: 'Fingerprint source for reproducibility', current: 4, total: 4 });
       const fingerprint = await fingerprintFile(file);
 
       const columns = described.map((row) => ({

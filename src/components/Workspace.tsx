@@ -26,6 +26,15 @@ import { ChartView } from './ChartView';
 import { DataTable } from './DataTable';
 
 type Tab = 'explore' | 'recipe' | 'chart' | 'dashboard';
+type ErrorScope = 'import' | 'query' | 'export' | '';
+
+type OperationProgress = {
+  label: string;
+  current: number;
+  total: number;
+};
+
+const GUIDE_STORAGE_KEY = 'dataskein:quick-start:open:v1';
 
 const SAMPLE_SALES = `order_id,ordered_at,region,category,revenue,status
 1001,2026-01-03,North,Hardware,1820,won
@@ -100,6 +109,53 @@ function stepLabel(step: TransformStep, datasets: Dataset[]): { title: string; d
   };
 }
 
+function errorTitle(scope: ErrorScope): string {
+  if (scope === 'import') {
+    return 'This file could not be opened.';
+  }
+  if (scope === 'query') {
+    return 'The current recipe could not run.';
+  }
+  if (scope === 'export') {
+    return 'The export could not be created.';
+  }
+  return 'DataSkein could not continue.';
+}
+
+function OperationStatus({
+  operation,
+  message,
+}: {
+  operation: OperationProgress;
+  message: string;
+}) {
+  const progress = Math.max(0, Math.min(100, (operation.current / operation.total) * 100));
+  return (
+    <div className="operation-status" role="status" aria-live="polite">
+      <div className="operation-heading">
+        <span className="spinner" aria-hidden="true" />
+        <div>
+          <strong>{message}</strong>
+          <small>{operation.label}</small>
+        </div>
+        <span>
+          {operation.current}/{operation.total}
+        </span>
+      </div>
+      <div
+        className="operation-track"
+        role="progressbar"
+        aria-label={operation.label}
+        aria-valuemin={0}
+        aria-valuemax={operation.total}
+        aria-valuenow={operation.current}
+      >
+        <i style={{ width: `${progress}%` }} />
+      </div>
+    </div>
+  );
+}
+
 export function Workspace() {
   const inputRef = useRef<HTMLInputElement>(null);
   const runRef = useRef(0);
@@ -118,6 +174,12 @@ export function Workspace() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('Ready. Files stay in this browser.');
   const [error, setError] = useState('');
+  const [errorScope, setErrorScope] = useState<ErrorScope>('');
+  const [operation, setOperation] = useState<OperationProgress | null>(null);
+  const [online, setOnline] = useState(() => navigator.onLine);
+  const [guideOpen, setGuideOpen] = useState(
+    () => window.localStorage.getItem(GUIDE_STORAGE_KEY) !== 'false',
+  );
   const [dragging, setDragging] = useState(false);
   const [filterColumn, setFilterColumn] = useState('');
   const [filterOperator, setFilterOperator] = useState<FilterOperator>('equals');
@@ -142,18 +204,27 @@ export function Workspace() {
       }
       setBusy(true);
       setError('');
+      setErrorScope('');
       let firstLoaded = '';
       const loaded: Dataset[] = [];
       for (const file of files) {
         try {
           setMessage(`Checking ${file.name}…`);
+          setOperation({ label: 'Validate file type and size', current: 1, total: 5 });
           const kind = await detectFileKind(file);
-          setMessage(`Profiling ${file.name} locally…`);
-          const dataset = await dataEngine.loadFile(file, kind);
+          setMessage(`Opening ${file.name} locally…`);
+          const dataset = await dataEngine.loadFile(file, kind, (progress) => {
+            setOperation({
+              label: progress.label,
+              current: progress.current + 1,
+              total: progress.total + 1,
+            });
+          });
           loaded.push(dataset);
           firstLoaded ||= dataset.id;
         } catch (loadError) {
           setError(`${file.name}: ${errorMessage(loadError)}`);
+          setErrorScope('import');
         }
       }
       if (loaded.length > 0) {
@@ -164,6 +235,7 @@ export function Workspace() {
         setMessage(`${loaded.length} source${loaded.length === 1 ? '' : 's'} loaded locally.`);
       }
       setBusy(false);
+      setOperation(null);
     },
     [activeId],
   );
@@ -194,16 +266,31 @@ export function Workspace() {
     const run = ++runRef.current;
     setBusy(true);
     setError('');
+    setErrorScope('');
     setMessage('Running the visible recipe in the local worker…');
+    setOperation({ label: 'Prepare result query', current: 0, total: 4 });
 
     void (async () => {
       try {
+        let completed = 0;
+        const track = async <T,>(label: string, task: Promise<T>): Promise<T> => {
+          const value = await task;
+          completed += 1;
+          if (run === runRef.current) {
+            setOperation({ label, current: completed, total: 4 });
+          }
+          return value;
+        };
         const [nextColumns, nextRows, countRows] = await Promise.all([
-          dataEngine.describe(recipeSql),
-          dataEngine.query(recipeSql, 250),
-          dataEngine.query(`SELECT COUNT(*) AS count FROM (${recipeSql}) AS counted`),
+          track('Schema detected', dataEngine.describe(recipeSql)),
+          track('Preview rows ready', dataEngine.query(recipeSql, 250)),
+          track(
+            'Result rows counted',
+            dataEngine.query(`SELECT COUNT(*) AS count FROM (${recipeSql}) AS counted`),
+          ),
         ]);
         const nextProfile = await dataEngine.profile(recipeSql, nextColumns);
+        setOperation({ label: 'Column profile ready', current: 4, total: 4 });
         if (run !== runRef.current) {
           return;
         }
@@ -226,11 +313,13 @@ export function Workspace() {
       } catch (queryError) {
         if (run === runRef.current) {
           setError(errorMessage(queryError));
+          setErrorScope('query');
           setMessage('The recipe could not be applied.');
         }
       } finally {
         if (run === runRef.current) {
           setBusy(false);
+          setOperation(null);
         }
       }
     })();
@@ -261,7 +350,10 @@ export function Workspace() {
           })),
         );
       })
-      .catch((chartError) => setError(errorMessage(chartError)));
+      .catch((chartError) => {
+        setError(errorMessage(chartError));
+        setErrorScope('query');
+      });
   }, [chartSpec, recipeSql]);
 
   useEffect(
@@ -270,6 +362,21 @@ export function Workspace() {
     },
     [],
   );
+
+  useEffect(() => {
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(GUIDE_STORAGE_KEY, String(guideOpen));
+  }, [guideOpen]);
 
   const handleFiles = (event: ChangeEvent<HTMLInputElement>) => {
     void loadFiles(Array.from(event.target.files ?? []));
@@ -358,9 +465,12 @@ export function Workspace() {
     }
     setBusy(true);
     setError('');
+    setErrorScope('');
     setMessage('Writing a formula-safe CSV in the local worker…');
+    setOperation({ label: 'Run safe export projection', current: 1, total: 2 });
     try {
       const bytes = await dataEngine.exportCsv(recipeSql, columns);
+      setOperation({ label: 'Write CSV back to this device', current: 2, total: 2 });
       downloadBlob(
         Uint8Array.from(bytes).buffer,
         `${activeDataset.name.replace(/\.[^.]+$/, '')}-dataskein.csv`,
@@ -369,8 +479,10 @@ export function Workspace() {
       setMessage('CSV exported. Spreadsheet formula prefixes were neutralized.');
     } catch (exportError) {
       setError(errorMessage(exportError));
+      setErrorScope('export');
     } finally {
       setBusy(false);
+      setOperation(null);
     }
   };
 
@@ -402,6 +514,43 @@ export function Workspace() {
 
   const nonActiveDatasets = datasets.filter((dataset) => dataset.id !== activeId);
   const currentRightDataset = datasets.find((dataset) => dataset.id === joinDatasetId);
+  const quickStartSteps = [
+    {
+      label: 'Open and profile a source',
+      detail: activeDataset ? `${activeDataset.name} is ready` : 'Choose a local file',
+      complete: Boolean(activeDataset),
+      tab: 'explore' as Tab,
+    },
+    {
+      label: 'Shape a useful result',
+      detail:
+        steps.length > 0
+          ? `${steps.length} visible recipe step${steps.length === 1 ? '' : 's'}`
+          : 'Add a filter, sort, or join',
+      complete: steps.length > 0,
+      tab: 'recipe' as Tab,
+    },
+    {
+      label: 'Pin a view to the dashboard',
+      detail:
+        dashboard.length > 0
+          ? `${dashboard.length} chart${dashboard.length === 1 ? '' : 's'} pinned`
+          : 'Build a chart from the result',
+      complete: dashboard.length > 0,
+      tab: dashboard.length > 0 ? ('dashboard' as Tab) : ('chart' as Tab),
+    },
+  ];
+  const quickStartComplete = quickStartSteps.filter((step) => step.complete).length;
+
+  const clearError = () => {
+    setError('');
+    setErrorScope('');
+  };
+
+  const undoFailedStep = () => {
+    setSteps((current) => current.slice(0, -1));
+    clearError();
+  };
 
   return (
     <div
@@ -432,9 +581,12 @@ export function Workspace() {
         <a href="/" className="brand-link">
           <Brand />
         </a>
-        <div className="privacy-pill">
+        <div
+          className={`privacy-pill${online ? '' : ' is-offline'}`}
+          title="Source files stay in this browser session and are not uploaded."
+        >
           <span aria-hidden="true" />
-          Local session
+          {online ? 'Local session' : 'Offline · local session'}
         </div>
         <nav aria-label="Workspace actions">
           <a href="https://github.com/arturict/dataskein" target="_blank" rel="noreferrer">
@@ -506,33 +658,98 @@ export function Workspace() {
       </aside>
 
       <main className="workspace-main" id="main-content">
+        {!online && (
+          <div className="offline-banner" role="status">
+            <span aria-hidden="true">⌁</span>
+            <div>
+              <strong>You are offline.</strong>
+              <p>
+                {datasets.length > 0
+                  ? 'Sources already open in this tab can still be explored locally.'
+                  : 'You can try a local file. A first-time browser may still need the connection to load the query engine.'}
+              </p>
+            </div>
+          </div>
+        )}
         {datasets.length === 0 ? (
           <section className="workspace-empty">
-            <p className="eyebrow">Local workspace</p>
-            <h1>Start with the file you were avoiding.</h1>
+            <div className="empty-privacy-signal">
+              <span aria-hidden="true">●</span>
+              Local by default · files are not uploaded
+            </div>
+            <p className="eyebrow">Your local data workbench</p>
+            <h1>Open a file. See its shape. Find the first useful answer.</h1>
             <p>
-              DataSkein opens CSV, TSV, JSON, JSONL, and Parquet directly in your browser. Preview
-              stays capped and queries run in a worker, so the interface remains useful on large
-              sources.
+              Start with CSV, TSV, JSON, JSONL, NDJSON, or Parquet. DataSkein checks the file,
+              profiles its columns, and prepares a bounded preview in this browser.
             </p>
-            <div className="empty-actions">
-              <button className="button button-primary" onClick={() => inputRef.current?.click()}>
-                Choose files
+            {operation ? (
+              <OperationStatus operation={operation} message={message} />
+            ) : (
+              <button className="empty-dropzone" onClick={() => inputRef.current?.click()}>
+                <span aria-hidden="true">⇣</span>
+                <strong>Drop files here or choose from this device</strong>
+                <small>Multiple files are supported for local joins · up to 1 GB each</small>
               </button>
-              <button className="button button-ghost" onClick={() => void loadSample()}>
-                Use sample data
+            )}
+            <div className="empty-actions">
+              <button
+                className="button button-primary"
+                onClick={() => inputRef.current?.click()}
+                disabled={busy}
+              >
+                Choose local files
+              </button>
+              <span>or</span>
+              <button
+                className="button button-ghost"
+                onClick={() => void loadSample()}
+                disabled={busy}
+              >
+                Explore safe sample data
               </button>
             </div>
             {error && (
-              <p className="error-banner" role="alert">
-                <strong>Could not open the file.</strong> {error}
-              </p>
+              <div className="error-banner error-recovery" role="alert">
+                <div>
+                  <strong>{errorTitle(errorScope)}</strong>
+                  <p>{error}</p>
+                </div>
+                <div>
+                  <button className="text-button" onClick={() => inputRef.current?.click()}>
+                    Choose another file
+                  </button>
+                  <button className="text-button" onClick={() => void loadSample()}>
+                    Use sample instead
+                  </button>
+                  <button className="text-button error-dismiss" onClick={clearError}>
+                    Dismiss
+                  </button>
+                </div>
+              </div>
             )}
-            <div className="empty-note">
-              <span aria-hidden="true">i</span>
-              This release deliberately stops at 1 GB per file and uses a 1 GB query memory cap.
-              Oversized work fails with an error instead of trying to consume the whole tab.
+            <div className="empty-outcomes" aria-label="What happens after opening a file">
+              <div>
+                <span>01</span>
+                <strong>Schema</strong>
+                <small>Types, nulls, ranges</small>
+              </div>
+              <div>
+                <span>02</span>
+                <strong>Preview</strong>
+                <small>Up to 250 visible rows</small>
+              </div>
+              <div>
+                <span>03</span>
+                <strong>Next action</strong>
+                <small>Filter, join, or chart</small>
+              </div>
             </div>
+            <p className="empty-limit">
+              <span aria-hidden="true">i</span>
+              Browser-safe boundary: 1 GB per file and a 1 GB query memory cap. Oversized work stops
+              with a recovery message instead of consuming the whole tab.
+            </p>
           </section>
         ) : (
           <>
@@ -560,16 +777,108 @@ export function Workspace() {
             </section>
 
             <div className="status-area">
-              <p role="status" aria-live="polite">
-                {busy && <span className="spinner" aria-hidden="true" />}
-                {message}
-              </p>
-              {error && (
-                <p className="error-banner" role="alert">
-                  <strong>Could not continue.</strong> {error}
+              {operation ? (
+                <OperationStatus operation={operation} message={message} />
+              ) : (
+                <p
+                  className={error ? 'status-message has-error' : 'status-message is-ready'}
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span aria-hidden="true">{error ? '!' : '✓'}</span>
+                  {message}
                 </p>
               )}
+              {error && (
+                <div className="error-banner error-recovery" role="alert">
+                  <div>
+                    <strong>{errorTitle(errorScope)}</strong>
+                    <p>{error}</p>
+                  </div>
+                  <div>
+                    {errorScope === 'query' && steps.length > 0 && (
+                      <button className="text-button" onClick={undoFailedStep}>
+                        Undo last recipe step
+                      </button>
+                    )}
+                    {errorScope === 'import' && (
+                      <button className="text-button" onClick={() => inputRef.current?.click()}>
+                        Choose another file
+                      </button>
+                    )}
+                    {errorScope === 'export' && (
+                      <button className="text-button" onClick={() => void exportCsv()}>
+                        Try export again
+                      </button>
+                    )}
+                    <button className="text-button error-dismiss" onClick={clearError}>
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
+
+            <section className={`quick-start${guideOpen ? '' : ' is-collapsed'}`}>
+              <div className="quick-start-heading">
+                <div>
+                  <p className="eyebrow">First useful result</p>
+                  <h2>
+                    {quickStartComplete === quickStartSteps.length
+                      ? 'Your first view is ready to export.'
+                      : 'Keep the next useful step obvious.'}
+                  </h2>
+                </div>
+                <div>
+                  <span>
+                    {quickStartComplete}/{quickStartSteps.length} complete
+                  </span>
+                  <button
+                    className="text-button"
+                    onClick={() => setGuideOpen((current) => !current)}
+                    aria-expanded={guideOpen}
+                  >
+                    {guideOpen ? 'Hide guide' : 'Resume guide'}
+                  </button>
+                </div>
+              </div>
+              {guideOpen && (
+                <>
+                  <div
+                    className="quick-start-track"
+                    role="progressbar"
+                    aria-label="First useful result progress"
+                    aria-valuemin={0}
+                    aria-valuemax={quickStartSteps.length}
+                    aria-valuenow={quickStartComplete}
+                  >
+                    <i
+                      style={{
+                        width: `${(quickStartComplete / quickStartSteps.length) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  <ol>
+                    {quickStartSteps.map((step, index) => (
+                      <li className={step.complete ? 'is-complete' : ''} key={step.label}>
+                        <span aria-hidden="true">{step.complete ? '✓' : index + 1}</span>
+                        <div>
+                          <strong>{step.label}</strong>
+                          <small>{step.detail}</small>
+                        </div>
+                        <button
+                          className="text-button"
+                          onClick={() => setTab(step.tab)}
+                          aria-label={`${step.complete ? 'Review' : 'Start'}: ${step.label}`}
+                        >
+                          {step.complete ? 'Review' : 'Start'} →
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
+            </section>
 
             <div className="workspace-tabs" role="tablist" aria-label="Workspace sections">
               {(['explore', 'recipe', 'chart', 'dashboard'] as Tab[]).map((item) => (
