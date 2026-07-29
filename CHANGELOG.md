@@ -6,6 +6,12 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-07-29
+
+### Fixed
+
+- Target the extensionless root document in Vercel rewrites when `cleanUrls` is enabled, so `/app` actually resolves in production.
+
 ## [0.1.4] - 2026-07-29
 
 ### Fixed
@@ -50,7 +56,8 @@ All notable changes are documented here. The format follows
 - Local-first CSP, service worker, landing page, and OSS project documentation
 - Unit, integration, E2E, accessibility, security, and large-input gates
 
-[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/arturict/dataskein/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/arturict/dataskein/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/arturict/dataskein/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/arturict/dataskein/compare/v0.1.1...v0.1.2

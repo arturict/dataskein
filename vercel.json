@@ -5,11 +5,11 @@
   "rewrites": [
     {
       "source": "/app",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/app/:path*",
-      "destination": "/index.html"
+      "destination": "/"
     }
   ],
   "headers": [
