@@ -19,7 +19,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm build && pnpm preview --host 127.0.0.1 --port 4184 --strictPort',
+    command: process.env.PLAYWRIGHT_REUSE_BUILD
+      ? 'pnpm preview --host 127.0.0.1 --port 4184 --strictPort'
+      : 'pnpm build && pnpm preview --host 127.0.0.1 --port 4184 --strictPort',
     url: 'http://127.0.0.1:4184',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

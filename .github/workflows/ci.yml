@@ -4,14 +4,18 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
   pull_request:
+    paths-ignore:
+      - '**/*.md'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -32,11 +36,13 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
       - name: Static, unit, and build gates
         run: pnpm check
-      - name: Browser, accessibility, and large-input gates
-        run: pnpm test:e2e
       - name: Audit production and development dependencies
         run: pnpm audit --audit-level high
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser, accessibility, and large-input gates
+        run: pnpm test:e2e
+        env:
+          PLAYWRIGHT_REUSE_BUILD: '1'
