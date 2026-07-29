@@ -1,0 +1,17 @@
+{
+  "name": "DataSkein",
+  "short_name": "DataSkein",
+  "description": "Local-first, reproducible exploration for CSV, JSON, and Parquet files.",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#f4f1e9",
+  "theme_color": "#10271f",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

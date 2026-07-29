@@ -1,0 +1,36 @@
+name: Focused feature request
+description: Propose an improvement that fits the local recipe workflow
+title: '[Idea]: '
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: job
+    attributes:
+      label: User job
+      description: What recurring task is blocked today?
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current workaround
+      description: How do you solve it now, and where does that fail?
+    validations:
+      required: true
+  - type: textarea
+    id: smallest
+    attributes:
+      label: Smallest useful change
+      description: Describe the narrowest version that would solve the job.
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundary
+    attributes:
+      label: Product boundary
+      options:
+        - label: This can work without uploading source files.
+          required: true
+        - label: I checked the roadmap and existing issues.
+          required: true

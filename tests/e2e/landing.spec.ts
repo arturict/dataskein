@@ -1,0 +1,25 @@
+import { expect, test } from '@playwright/test';
+
+test('landing page presents the focused product and working navigation', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Follow the thread');
+  await expect(page.getByRole('listitem').filter({ hasText: 'No upload' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open workspace' })).toHaveAttribute('href', '/app');
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    'href',
+    'https://dataskein.vercel.app/',
+  );
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+    'content',
+    'https://dataskein.vercel.app/og.png',
+  );
+});
+
+test('landing page remains usable at a narrow mobile viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Try the sample' })).toBeVisible();
+  const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
+  expect(bodyWidth).toBeLessThanOrEqual(390);
+});
