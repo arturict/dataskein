@@ -54,6 +54,74 @@ test('sample journey profiles, filters, joins, charts, and exports a dashboard',
   expect(download.suggestedFilename()).toBe('dataskein-dashboard.html');
 });
 
+test('source switching preserves each dataset recipe and tabs support keyboard navigation', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.goto('/app?sample=1');
+  await expect(page.getByRole('status')).toContainText('Previewing 12 of 12 rows', {
+    timeout: 45_000,
+  });
+
+  const exploreTab = page.getByRole('tab', { name: 'Explore' });
+  await exploreTab.focus();
+  await page.keyboard.press('ArrowRight');
+  const recipeTab = page.getByRole('tab', { name: 'Recipe' });
+  await expect(recipeTab).toBeFocused();
+  await expect(recipeTab).toHaveAttribute('aria-selected', 'true');
+
+  const filterControl = page.locator('details').filter({ hasText: 'Filter rows' });
+  await filterControl.getByLabel('Column').selectOption('status');
+  await filterControl.getByLabel('Condition').selectOption('equals');
+  await filterControl.getByLabel('Value').fill('won');
+  await filterControl.getByRole('button', { name: 'Add filter' }).click();
+  await expect(page.getByRole('status')).toContainText('Previewing 9 of 9 rows', {
+    timeout: 30_000,
+  });
+
+  await page.getByRole('button', { name: /region-targets\.csv/ }).click();
+  await expect(page.getByRole('heading', { name: 'region-targets.csv' })).toBeVisible();
+  await expect(page.getByRole('status')).toContainText('Previewing 4 of 4 rows', {
+    timeout: 30_000,
+  });
+
+  await page.getByRole('button', { name: /quarterly-sales\.csv/ }).click();
+  await expect(page.getByRole('status')).toContainText('Previewing 9 of 9 rows', {
+    timeout: 30_000,
+  });
+  await expect(page.getByText('status · equals', { exact: true })).toBeVisible();
+
+  await recipeTab.press('End');
+  await expect(page.getByRole('tab', { name: 'Dashboard' })).toBeFocused();
+  await page.getByRole('tab', { name: 'Dashboard' }).press('Home');
+  await expect(exploreTab).toBeFocused();
+});
+
+test('column selection becomes a visible and executable recipe step', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto('/app?sample=1');
+  await expect(page.getByRole('status')).toContainText('Previewing 12 of 12 rows', {
+    timeout: 45_000,
+  });
+  await page.getByRole('tab', { name: 'Recipe' }).click();
+
+  const selectionControl = page.locator('details').filter({ hasText: 'Keep selected columns' });
+  await selectionControl.locator('summary').click();
+  await selectionControl.getByRole('button', { name: 'Clear' }).click();
+  await selectionControl.getByLabel('order_id').check();
+  await selectionControl.getByLabel('region').check();
+  await selectionControl.getByRole('button', { name: 'Keep 2 columns' }).click();
+
+  await expect(page.getByRole('status')).toContainText('Previewing 12 of 12 rows', {
+    timeout: 30_000,
+  });
+  await expect(page.getByText('2 selected', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'Explore' }).click();
+  await expect(page.getByRole('columnheader', { name: 'order_id' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'region' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'status' })).toHaveCount(0);
+});
+
 test('safe CSV export neutralizes spreadsheet formulas', async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto('/app');

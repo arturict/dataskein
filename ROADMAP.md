@@ -21,6 +21,7 @@ Only after real user feedback:
 - recipe-level undo and reorder,
 - Firefox and WebKit CI coverage,
 - keyboard-focused drag-and-drop alternatives and usability testing.
+- read-only `.duckdb` sources, only after clarifying whether users need table browsing, join sources, or a general SQL client.
 
 ## Explicitly not planned
 

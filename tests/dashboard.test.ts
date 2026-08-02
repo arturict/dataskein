@@ -29,4 +29,33 @@ describe('standalone dashboard export', () => {
   it('escapes all five HTML-sensitive characters', () => {
     expect(escapeHtml(`<>&"'`)).toBe('&lt;&gt;&amp;&quot;&#39;');
   });
+
+  it('preserves line and area semantics and renders a signed zero baseline', () => {
+    const base: DashboardCard = {
+      id: '1',
+      sourceName: 'sales.csv',
+      query: 'SELECT 1',
+      spec: {
+        id: 'chart',
+        title: 'Change',
+        type: 'line',
+        dimension: 'month',
+        measure: 'change',
+        aggregation: 'sum',
+      },
+      data: [
+        { label: 'Jan', value: -10 },
+        { label: 'Feb', value: 20 },
+      ],
+    };
+
+    const line = buildDashboardHtml([base]);
+    expect(line).toContain('<polyline');
+    expect(line).not.toContain('<rect');
+    expect(line).toContain('y1="');
+
+    const area = buildDashboardHtml([{ ...base, spec: { ...base.spec, type: 'area' } }]);
+    expect(area).toContain('<polygon');
+    expect(area).toContain('<polyline');
+  });
 });

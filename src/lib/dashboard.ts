@@ -13,26 +13,50 @@ function cardSvg(card: DashboardCard): string {
   const width = 720;
   const height = 320;
   const padding = 46;
-  const data = card.data.slice(0, 20);
-  const max = Math.max(...data.map((datum) => Math.abs(datum.value)), 1);
+  const data = card.data
+    .slice(0, 20)
+    .map((datum) => ({ ...datum, value: Number.isFinite(datum.value) ? datum.value : 0 }));
+  const minimum = Math.min(0, ...data.map((datum) => datum.value));
+  const maximum = Math.max(0, ...data.map((datum) => datum.value));
+  const range = maximum - minimum || 1;
+  const plotHeight = height - padding * 2;
+  const yFor = (value: number) => padding + ((maximum - value) / range) * plotHeight;
+  const baseline = yFor(0);
+  const step = (width - padding * 2) / Math.max(data.length, 1);
   const barWidth = Math.max(8, (width - padding * 2) / Math.max(data.length, 1) - 8);
 
   const bars = data
     .map((datum, index) => {
-      const barHeight = (Math.abs(datum.value) / max) * (height - padding * 2);
-      const x = padding + index * ((width - padding * 2) / Math.max(data.length, 1));
-      const y = height - padding - barHeight;
+      const valueY = yFor(datum.value);
+      const barHeight = Math.max(1, Math.abs(valueY - baseline));
+      const x = padding + index * step;
+      const y = Math.min(valueY, baseline);
       return `<g><rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="3" fill="#2f6f59"/><title>${escapeHtml(
         `${datum.label}: ${datum.value}`,
-      )}</title><text x="${x + barWidth / 2}" y="${height - 20}" text-anchor="middle">${escapeHtml(
+      )}</title></g>`;
+    })
+    .join('');
+
+  const points = data
+    .map((datum, index) => `${padding + index * step + step / 2},${yFor(datum.value)}`)
+    .join(' ');
+  const line = `<polyline points="${points}" fill="none" stroke="#2f6f59" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const area = `<polygon points="${padding + step / 2},${baseline} ${points} ${
+    padding + Math.max(data.length - 1, 0) * step + step / 2
+  },${baseline}" fill="#2f6f59" opacity=".18"/>${line}`;
+  const marks = card.spec.type === 'bar' ? bars : card.spec.type === 'area' ? area : line;
+  const labels = data
+    .map((datum, index) => {
+      const x = padding + index * step + step / 2;
+      return `<text x="${x}" y="${height - 20}" text-anchor="middle">${escapeHtml(
         datum.label.slice(0, 10),
-      )}</text></g>`;
+      )}</text>`;
     })
     .join('');
 
   return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(
     `${card.spec.title}. ${data.length} values.`,
-  )}" xmlns="http://www.w3.org/2000/svg"><style>text{font:12px system-ui;fill:#40534b}</style><line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="#a9b8b1"/>${bars}</svg>`;
+  )}" xmlns="http://www.w3.org/2000/svg"><style>text{font:12px system-ui;fill:#40534b}</style><line x1="${padding}" y1="${baseline}" x2="${width - padding}" y2="${baseline}" stroke="#a9b8b1"/>${marks}${labels}</svg>`;
 }
 
 export function buildDashboardHtml(cards: DashboardCard[], generatedAt = new Date()): string {

@@ -12,10 +12,20 @@ All notable changes are documented here. The format follows
 - Add a resumable first-result checklist that links directly to profiling, recipe, chart, and dashboard surfaces.
 - Explain offline state, browser-safe limits, and recovery actions for import, recipe, and export failures in context.
 - Verify the compact mobile workspace for overflow and console errors.
+- Add the previously documented visual column-selection recipe step.
+- Add keyboard-complete tabs with Arrow, Home, and End navigation.
 
 ### Changed
 
 - Make the empty workspace outcome-first with a prominent local-file drop zone, safe sample path, privacy signal, and next-step preview.
+- Preserve each source's in-session recipe, chart setup, dashboard, and active tab when switching between loaded datasets.
+
+### Fixed
+
+- Restrict chart measures to numeric columns and prevent stale chart queries from being pinned after rapid changes.
+- Keep line and area exports faithful to their selected chart type, including a correct zero baseline for negative values.
+- Remove the misleading scatter option, which previously used ordinal row positions rather than a real numeric x-axis.
+- Label columns beyond the 80-column profiling cap honestly instead of showing invented zero counts.
 
 ## [0.1.6] - 2026-07-29
 

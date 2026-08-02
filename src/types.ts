@@ -56,7 +56,7 @@ export interface SelectStep {
 
 export type TransformStep = FilterStep | SortStep | JoinStep | SelectStep;
 
-export type ChartType = 'bar' | 'line' | 'area' | 'scatter';
+export type ChartType = 'bar' | 'line' | 'area';
 export type Aggregation = 'count' | 'sum' | 'average' | 'minimum' | 'maximum';
 
 export interface ChartSpec {

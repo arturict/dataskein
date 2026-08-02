@@ -39,7 +39,7 @@ The evidence, competitor comparison, and scope decision are documented in
 - Local schema and column profiling with bounded previews
 - Visual filters, sorting, column selection, and left or inner joins
 - Inspectable DuckDB SQL generated from every transformation step
-- Bar, line, area, and scatter charts with accessible descriptions
+- Bar, line, and area charts with accessible descriptions
 - Small in-session dashboards
 - Formula-neutralized CSV export
 - Portable SQL recipe export with source names and SHA-256 fingerprints

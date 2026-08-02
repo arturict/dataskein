@@ -1,6 +1,7 @@
 import {
   type ChangeEvent,
   type DragEvent,
+  type KeyboardEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -28,6 +29,13 @@ import { DataTable } from './DataTable';
 type Tab = 'explore' | 'recipe' | 'chart' | 'dashboard';
 type ErrorScope = 'import' | 'query' | 'export' | '';
 
+type WorkspaceSnapshot = {
+  steps: TransformStep[];
+  chartSpec: ChartSpec;
+  dashboard: DashboardCard[];
+  tab: Tab;
+};
+
 type OperationProgress = {
   label: string;
   current: number;
@@ -35,6 +43,7 @@ type OperationProgress = {
 };
 
 const GUIDE_STORAGE_KEY = 'dataskein:quick-start:open:v1';
+const TABS: Tab[] = ['explore', 'recipe', 'chart', 'dashboard'];
 
 const SAMPLE_SALES = `order_id,ordered_at,region,category,revenue,status
 1001,2026-01-03,North,Hardware,1820,won
@@ -159,7 +168,9 @@ function OperationStatus({
 export function Workspace() {
   const inputRef = useRef<HTMLInputElement>(null);
   const runRef = useRef(0);
+  const chartRunRef = useRef(0);
   const sampleStarted = useRef(false);
+  const workspaceByDataset = useRef(new Map<string, WorkspaceSnapshot>());
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [activeId, setActiveId] = useState('');
   const [steps, setSteps] = useState<TransformStep[]>([]);
@@ -170,6 +181,7 @@ export function Workspace() {
   const [resultCount, setResultCount] = useState(0);
   const [chartSpec, setChartSpec] = useState<ChartSpec>(() => defaultChart([]));
   const [chartData, setChartData] = useState<ChartDatum[]>([]);
+  const [chartResultKey, setChartResultKey] = useState('');
   const [dashboard, setDashboard] = useState<DashboardCard[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('Ready. Files stay in this browser.');
@@ -190,11 +202,36 @@ export function Workspace() {
   const [joinLeft, setJoinLeft] = useState('');
   const [joinRight, setJoinRight] = useState('');
   const [joinMode, setJoinMode] = useState<'left' | 'inner'>('left');
+  const [keptColumns, setKeptColumns] = useState<string[]>([]);
 
   const activeDataset = datasets.find((dataset) => dataset.id === activeId);
   const recipeSql = useMemo(
     () => (activeDataset ? compileRecipe(activeDataset, datasets, steps) : ''),
     [activeDataset, datasets, steps],
+  );
+  const numericColumns = useMemo(
+    () => columns.filter((column) => /INT|DECIMAL|DOUBLE|FLOAT|REAL|HUGEINT/i.test(column.type)),
+    [columns],
+  );
+  const chartQuerySpec = useMemo<ChartSpec>(
+    () => ({
+      id: 'live-chart-query',
+      title: '',
+      type: chartSpec.type,
+      dimension: chartSpec.dimension,
+      measure: chartSpec.measure,
+      aggregation: chartSpec.aggregation,
+    }),
+    [chartSpec.aggregation, chartSpec.dimension, chartSpec.measure, chartSpec.type],
+  );
+  const chartQuerySql = useMemo(
+    () =>
+      recipeSql &&
+      chartQuerySpec.dimension &&
+      (chartQuerySpec.aggregation === 'count' || chartQuerySpec.measure)
+        ? compileChartQuery(recipeSql, chartQuerySpec)
+        : '',
+    [chartQuerySpec, recipeSql],
   );
 
   const loadFiles = useCallback(
@@ -295,11 +332,22 @@ export function Workspace() {
           return;
         }
         setColumns(nextColumns);
+        setKeptColumns(nextColumns.map((column) => column.name));
         setRows(nextRows);
         setProfile(nextProfile);
         setResultCount(Number(countRows[0]?.count ?? 0));
         setChartSpec((current) => {
-          const stillValid = nextColumns.some((column) => column.name === current.dimension);
+          const stillValidDimension = nextColumns.some(
+            (column) => column.name === current.dimension,
+          );
+          const stillValidMeasure =
+            current.aggregation === 'count' ||
+            nextColumns.some(
+              (column) =>
+                column.name === current.measure &&
+                /INT|DECIMAL|DOUBLE|FLOAT|REAL|HUGEINT/i.test(column.type),
+            );
+          const stillValid = stillValidDimension && stillValidMeasure;
           return stillValid ? current : defaultChart(nextColumns);
         });
         setFilterColumn((current) => current || nextColumns[0]?.name || '');
@@ -331,30 +379,35 @@ export function Workspace() {
   }, [datasets, joinDatasetId]);
 
   useEffect(() => {
-    if (!recipeSql || !chartSpec.dimension) {
+    const chartRun = ++chartRunRef.current;
+    if (!chartQuerySql) {
       setChartData([]);
+      setChartResultKey('');
       return;
     }
-    if (chartSpec.aggregation !== 'count' && !chartSpec.measure) {
-      setChartData([]);
-      return;
-    }
-    const query = compileChartQuery(recipeSql, chartSpec);
+    setChartData([]);
+    setChartResultKey('');
     void dataEngine
-      .query(query)
+      .query(chartQuerySql)
       .then((chartRows) => {
+        if (chartRun !== chartRunRef.current) {
+          return;
+        }
         setChartData(
           chartRows.map((row) => ({
             label: scalarText(row.label, 'Unknown'),
             value: Number(row.value ?? 0),
           })),
         );
+        setChartResultKey(chartQuerySql);
       })
       .catch((chartError) => {
-        setError(errorMessage(chartError));
-        setErrorScope('query');
+        if (chartRun === chartRunRef.current) {
+          setError(errorMessage(chartError));
+          setErrorScope('query');
+        }
       });
-  }, [chartSpec, recipeSql]);
+  }, [chartQuerySql]);
 
   useEffect(
     () => () => {
@@ -393,10 +446,30 @@ export function Workspace() {
     if (id === activeId) {
       return;
     }
+
+    if (activeId) {
+      workspaceByDataset.current.set(activeId, {
+        steps,
+        chartSpec,
+        dashboard,
+        tab,
+      });
+    }
+
+    const nextDataset = datasets.find((dataset) => dataset.id === id);
+    const savedWorkspace = workspaceByDataset.current.get(id);
     setActiveId(id);
-    setSteps([]);
-    setDashboard([]);
-    setTab('explore');
+    setSteps(savedWorkspace?.steps ?? []);
+    setChartSpec(savedWorkspace?.chartSpec ?? defaultChart(nextDataset?.columns ?? []));
+    setDashboard(savedWorkspace?.dashboard ?? []);
+    setTab(savedWorkspace?.tab ?? 'explore');
+    setKeptColumns([]);
+    setFilterColumn('');
+    setFilterValue('');
+    setSortColumn('');
+    setJoinDatasetId('');
+    setJoinLeft('');
+    setJoinRight('');
   };
 
   const addFilter = () => {
@@ -429,6 +502,44 @@ export function Workspace() {
         direction: sortDirection,
       },
     ]);
+  };
+
+  const addColumnSelection = () => {
+    if (keptColumns.length === 0 || keptColumns.length === columns.length) {
+      return;
+    }
+    setSteps((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        type: 'select',
+        columns: keptColumns,
+      },
+    ]);
+  };
+
+  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, currentTab: Tab) => {
+    const currentIndex = TABS.indexOf(currentTab);
+    let nextIndex: number | null = null;
+
+    if (event.key === 'ArrowRight') {
+      nextIndex = (currentIndex + 1) % TABS.length;
+    } else if (event.key === 'ArrowLeft') {
+      nextIndex = (currentIndex - 1 + TABS.length) % TABS.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = TABS.length - 1;
+    }
+
+    if (nextIndex == null) {
+      return;
+    }
+
+    event.preventDefault();
+    const nextTab = TABS[nextIndex]!;
+    setTab(nextTab);
+    document.getElementById(`workspace-tab-${nextTab}`)?.focus();
   };
 
   const addJoin = () => {
@@ -487,10 +598,9 @@ export function Workspace() {
   };
 
   const pinChart = () => {
-    if (!activeDataset || chartData.length === 0) {
+    if (!activeDataset || chartData.length === 0 || chartResultKey !== chartQuerySql) {
       return;
     }
-    const query = compileChartQuery(recipeSql, chartSpec);
     setDashboard((current) => [
       ...current,
       {
@@ -498,7 +608,7 @@ export function Workspace() {
         spec: { ...chartSpec, id: crypto.randomUUID() },
         data: chartData,
         sourceName: activeDataset.name,
-        query,
+        query: chartQuerySql,
       },
     ]);
     setTab('dashboard');
@@ -881,13 +991,17 @@ export function Workspace() {
             </section>
 
             <div className="workspace-tabs" role="tablist" aria-label="Workspace sections">
-              {(['explore', 'recipe', 'chart', 'dashboard'] as Tab[]).map((item) => (
+              {TABS.map((item) => (
                 <button
                   key={item}
+                  id={`workspace-tab-${item}`}
                   role="tab"
                   aria-selected={tab === item}
+                  aria-controls={`workspace-panel-${item}`}
+                  tabIndex={tab === item ? 0 : -1}
                   className={tab === item ? 'active' : ''}
                   onClick={() => setTab(item)}
+                  onKeyDown={(event) => handleTabKeyDown(event, item)}
                 >
                   {item[0]?.toUpperCase()}
                   {item.slice(1)}
@@ -898,7 +1012,12 @@ export function Workspace() {
             </div>
 
             {tab === 'explore' && (
-              <section className="workspace-panel" role="tabpanel">
+              <section
+                id="workspace-panel-explore"
+                className="workspace-panel"
+                role="tabpanel"
+                aria-labelledby="workspace-tab-explore"
+              >
                 <div className="panel-heading">
                   <div>
                     <p className="eyebrow">Profile</p>
@@ -916,11 +1035,19 @@ export function Workspace() {
                       <dl>
                         <div>
                           <dt>missing</dt>
-                          <dd>{(column.nullCount ?? 0).toLocaleString()}</dd>
+                          <dd>
+                            {column.nullCount == null
+                              ? 'not profiled'
+                              : column.nullCount.toLocaleString()}
+                          </dd>
                         </div>
                         <div>
                           <dt>distinct</dt>
-                          <dd>≈{(column.distinctCount ?? 0).toLocaleString()}</dd>
+                          <dd>
+                            {column.distinctCount == null
+                              ? 'not profiled'
+                              : `≈${column.distinctCount.toLocaleString()}`}
+                          </dd>
                         </div>
                       </dl>
                       {(column.minimum != null || column.maximum != null) && (
@@ -943,7 +1070,12 @@ export function Workspace() {
             )}
 
             {tab === 'recipe' && (
-              <section className="workspace-panel recipe-panel" role="tabpanel">
+              <section
+                id="workspace-panel-recipe"
+                className="workspace-panel recipe-panel"
+                role="tabpanel"
+                aria-labelledby="workspace-tab-recipe"
+              >
                 <div className="recipe-builder">
                   <div className="panel-heading">
                     <div>
@@ -1028,6 +1160,64 @@ export function Workspace() {
                       </label>
                       <button className="button button-dark button-small" onClick={addSort}>
                         Add sort
+                      </button>
+                    </div>
+                  </details>
+
+                  <details className="transform-control">
+                    <summary>Keep selected columns</summary>
+                    <div className="column-selection-control">
+                      <div className="column-selection-heading">
+                        <p>
+                          Choose the fields that should remain in the result. This becomes a visible
+                          recipe step and never edits the source file.
+                        </p>
+                        <span>
+                          {keptColumns.length}/{columns.length} selected
+                        </span>
+                      </div>
+                      <div className="column-selection-actions">
+                        <button
+                          className="text-button"
+                          type="button"
+                          onClick={() => setKeptColumns(columns.map((column) => column.name))}
+                        >
+                          Select all
+                        </button>
+                        <button
+                          className="text-button"
+                          type="button"
+                          onClick={() => setKeptColumns([])}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <div className="column-selection-list">
+                        {columns.map((column) => (
+                          <label key={column.name}>
+                            <input
+                              type="checkbox"
+                              checked={keptColumns.includes(column.name)}
+                              onChange={(event) =>
+                                setKeptColumns((current) =>
+                                  event.target.checked
+                                    ? [...current, column.name]
+                                    : current.filter((name) => name !== column.name),
+                                )
+                              }
+                            />
+                            <span title={column.name}>{column.name}</span>
+                            <small>{column.type}</small>
+                          </label>
+                        ))}
+                      </div>
+                      <button
+                        className="button button-dark button-small"
+                        type="button"
+                        disabled={keptColumns.length === 0 || keptColumns.length === columns.length}
+                        onClick={addColumnSelection}
+                      >
+                        Keep {keptColumns.length} columns
                       </button>
                     </div>
                   </details>
@@ -1134,7 +1324,12 @@ export function Workspace() {
             )}
 
             {tab === 'chart' && (
-              <section className="workspace-panel chart-panel" role="tabpanel">
+              <section
+                id="workspace-panel-chart"
+                className="workspace-panel chart-panel"
+                role="tabpanel"
+                aria-labelledby="workspace-tab-chart"
+              >
                 <div className="chart-controls">
                   <div>
                     <p className="eyebrow">Chart builder</p>
@@ -1163,7 +1358,6 @@ export function Workspace() {
                       <option value="bar">bar</option>
                       <option value="line">line</option>
                       <option value="area">area</option>
-                      <option value="scatter">scatter</option>
                     </select>
                   </label>
                   <label>
@@ -1207,7 +1401,7 @@ export function Workspace() {
                       }
                     >
                       <option value="">Choose a numeric column</option>
-                      {columns.map((column) => (
+                      {numericColumns.map((column) => (
                         <option key={column.name}>{column.name}</option>
                       ))}
                     </select>
@@ -1215,7 +1409,7 @@ export function Workspace() {
                   <button
                     className="button button-primary"
                     onClick={pinChart}
-                    disabled={chartData.length === 0}
+                    disabled={chartData.length === 0 || chartResultKey !== chartQuerySql}
                   >
                     Pin to dashboard
                   </button>
@@ -1235,7 +1429,12 @@ export function Workspace() {
             )}
 
             {tab === 'dashboard' && (
-              <section className="workspace-panel dashboard-panel" role="tabpanel">
+              <section
+                id="workspace-panel-dashboard"
+                className="workspace-panel dashboard-panel"
+                role="tabpanel"
+                aria-labelledby="workspace-tab-dashboard"
+              >
                 <div className="panel-heading">
                   <div>
                     <p className="eyebrow">Dashboard snapshot</p>

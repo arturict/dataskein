@@ -104,11 +104,12 @@ export function compileChartQuery(recipeSql: string, spec: ChartSpec): string {
   const dimension = quoteIdentifier(spec.dimension);
   const measure = spec.measure ? quoteIdentifier(spec.measure) : '*';
   const aggregate = AGGREGATION_SQL[spec.aggregation](measure);
+  const ordering = spec.type === 'bar' ? 'value DESC NULLS LAST' : 'label ASC';
   return `SELECT CAST(${dimension} AS VARCHAR) AS label, ${aggregate} AS value
 FROM (${recipeSql}) AS chart_source
 WHERE ${dimension} IS NOT NULL
 GROUP BY ${dimension}
-ORDER BY value DESC NULLS LAST
+ORDER BY ${ordering}
 LIMIT 100`;
 }
 

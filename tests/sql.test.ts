@@ -121,6 +121,7 @@ describe('SQL compiler', () => {
     const query = compileChartQuery('SELECT * FROM "dataset_sales"', spec);
     expect(query).toContain('SUM(TRY_CAST("revenue" AS DOUBLE))');
     expect(query).toContain('GROUP BY "region"');
+    expect(query).toContain('ORDER BY value DESC NULLS LAST');
     expect(query).toContain('LIMIT 100');
   });
 
@@ -134,6 +135,7 @@ describe('SQL compiler', () => {
       aggregation: 'count',
     };
     expect(compileChartQuery('SELECT 1', base)).toContain('COUNT(*)');
+    expect(compileChartQuery('SELECT 1', base)).toContain('ORDER BY label ASC');
     expect(
       compileChartQuery('SELECT 1', {
         ...base,
