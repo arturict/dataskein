@@ -16,8 +16,10 @@ import type {
   ChartDatum,
   ChartSpec,
   ColumnInfo,
+  CsvImportOptions,
   DashboardCard,
   Dataset,
+  FileKind,
   FilterOperator,
   QueryRow,
   TransformStep,
@@ -85,6 +87,22 @@ function scalarText(value: unknown, fallback: string): string {
     return `${value}`;
   }
   return fallback;
+}
+
+function csvCharacter(value: string): string {
+  if (value === '\t') {
+    return 'Tab';
+  }
+  if (value === '\n') {
+    return 'LF';
+  }
+  if (value === '\r\n') {
+    return 'CRLF';
+  }
+  if (value === '') {
+    return 'None';
+  }
+  return value;
 }
 
 function defaultChart(columns: ColumnInfo[]): ChartSpec {
@@ -203,6 +221,11 @@ export function Workspace() {
   const [joinRight, setJoinRight] = useState('');
   const [joinMode, setJoinMode] = useState<'left' | 'inner'>('left');
   const [keptColumns, setKeptColumns] = useState<string[]>([]);
+  const [csvRecovery, setCsvRecovery] = useState<{ file: File } | null>(null);
+  const [csvDelimiter, setCsvDelimiter] = useState<'auto' | ',' | ';' | '\t' | '|'>('auto');
+  const [csvHeader, setCsvHeader] = useState<'auto' | 'yes' | 'no'>('auto');
+  const [csvAllText, setCsvAllText] = useState(false);
+  const [csvEncoding, setCsvEncoding] = useState<'utf-8' | 'latin-1' | 'utf-16'>('utf-8');
 
   const activeDataset = datasets.find((dataset) => dataset.id === activeId);
   const recipeSql = useMemo(
@@ -235,33 +258,45 @@ export function Workspace() {
   );
 
   const loadFiles = useCallback(
-    async (files: File[]) => {
+    async (files: File[], csvOptions: CsvImportOptions = {}) => {
       if (files.length === 0) {
         return;
       }
       setBusy(true);
       setError('');
       setErrorScope('');
+      setCsvRecovery(null);
       let firstLoaded = '';
+      let csvFailed = false;
       const loaded: Dataset[] = [];
       for (const file of files) {
+        let kind: FileKind | undefined;
         try {
           setMessage(`Checking ${file.name}…`);
           setOperation({ label: 'Validate file type and size', current: 1, total: 5 });
-          const kind = await detectFileKind(file);
+          kind = await detectFileKind(file);
           setMessage(`Opening ${file.name} locally…`);
-          const dataset = await dataEngine.loadFile(file, kind, (progress) => {
-            setOperation({
-              label: progress.label,
-              current: progress.current + 1,
-              total: progress.total + 1,
-            });
-          });
+          const dataset = await dataEngine.loadFile(
+            file,
+            kind,
+            (progress) => {
+              setOperation({
+                label: progress.label,
+                current: progress.current + 1,
+                total: progress.total + 1,
+              });
+            },
+            kind === 'csv' ? csvOptions : {},
+          );
           loaded.push(dataset);
           firstLoaded ||= dataset.id;
         } catch (loadError) {
           setError(`${file.name}: ${errorMessage(loadError)}`);
           setErrorScope('import');
+          if (kind === 'csv') {
+            csvFailed = true;
+            setCsvRecovery({ file });
+          }
         }
       }
       if (loaded.length > 0) {
@@ -270,6 +305,9 @@ export function Workspace() {
           setActiveId(firstLoaded);
         }
         setMessage(`${loaded.length} source${loaded.length === 1 ? '' : 's'} loaded locally.`);
+        if (!csvFailed) {
+          setCsvRecovery(null);
+        }
       }
       setBusy(false);
       setOperation(null);
@@ -284,6 +322,19 @@ export function Workspace() {
     ];
     await loadFiles(files);
   }, [loadFiles]);
+
+  const retryCsvImport = () => {
+    if (!csvRecovery) {
+      return;
+    }
+    const options: CsvImportOptions = {
+      delimiter: csvDelimiter === 'auto' ? undefined : csvDelimiter,
+      header: csvHeader === 'auto' ? undefined : csvHeader === 'yes',
+      allVarchar: csvAllText || undefined,
+      encoding: csvEncoding === 'utf-8' ? undefined : csvEncoding,
+    };
+    void loadFiles([csvRecovery.file], options);
+  };
 
   useEffect(() => {
     if (
@@ -655,12 +706,67 @@ export function Workspace() {
   const clearError = () => {
     setError('');
     setErrorScope('');
+    setCsvRecovery(null);
   };
 
   const undoFailedStep = () => {
     setSteps((current) => current.slice(0, -1));
     clearError();
   };
+
+  const csvRecoveryControls = csvRecovery ? (
+    <fieldset className="csv-recovery-controls">
+      <legend>Retry with explicit CSV settings</legend>
+      <label>
+        Delimiter
+        <select
+          value={csvDelimiter}
+          onChange={(event) =>
+            setCsvDelimiter(event.target.value as 'auto' | ',' | ';' | '\t' | '|')
+          }
+        >
+          <option value="auto">Detect automatically</option>
+          <option value=",">Comma</option>
+          <option value=";">Semicolon</option>
+          <option value="\t">Tab</option>
+          <option value="|">Pipe</option>
+        </select>
+      </label>
+      <label>
+        Header row
+        <select
+          value={csvHeader}
+          onChange={(event) => setCsvHeader(event.target.value as 'auto' | 'yes' | 'no')}
+        >
+          <option value="auto">Detect automatically</option>
+          <option value="yes">First row is a header</option>
+          <option value="no">No header row</option>
+        </select>
+      </label>
+      <label>
+        Encoding
+        <select
+          value={csvEncoding}
+          onChange={(event) => setCsvEncoding(event.target.value as 'utf-8' | 'latin-1' | 'utf-16')}
+        >
+          <option value="utf-8">UTF-8</option>
+          <option value="latin-1">Latin-1</option>
+          <option value="utf-16">UTF-16</option>
+        </select>
+      </label>
+      <label className="csv-text-option">
+        <input
+          type="checkbox"
+          checked={csvAllText}
+          onChange={(event) => setCsvAllText(event.target.checked)}
+        />
+        Keep every column as text
+      </label>
+      <button className="button button-small button-dark" onClick={retryCsvImport} disabled={busy}>
+        Retry locally
+      </button>
+    </fieldset>
+  ) : null;
 
   return (
     <div
@@ -824,6 +930,7 @@ export function Workspace() {
                 <div>
                   <strong>{errorTitle(errorScope)}</strong>
                   <p>{error}</p>
+                  {csvRecoveryControls}
                 </div>
                 <div>
                   <button className="text-button" onClick={() => inputRef.current?.click()}>
@@ -904,6 +1011,7 @@ export function Workspace() {
                   <div>
                     <strong>{errorTitle(errorScope)}</strong>
                     <p>{error}</p>
+                    {csvRecoveryControls}
                   </div>
                   <div>
                     {errorScope === 'query' && steps.length > 0 && (
@@ -1018,6 +1126,59 @@ export function Workspace() {
                 role="tabpanel"
                 aria-labelledby="workspace-tab-explore"
               >
+                {activeDataset?.csvImport && (
+                  <details className="import-xray">
+                    <summary>
+                      <span>
+                        <strong>CSV import details</strong>
+                        <small>See what DuckDB detected before trusting the schema.</small>
+                      </span>
+                      <span aria-hidden="true">＋</span>
+                    </summary>
+                    <dl>
+                      <div>
+                        <dt>Delimiter</dt>
+                        <dd>{csvCharacter(activeDataset.csvImport.delimiter)}</dd>
+                      </div>
+                      <div>
+                        <dt>Header</dt>
+                        <dd>{activeDataset.csvImport.hasHeader ? 'First row' : 'No header'}</dd>
+                      </div>
+                      <div>
+                        <dt>Types</dt>
+                        <dd>{activeDataset.csvImport.allVarchar ? 'All text' : 'Detected'}</dd>
+                      </div>
+                      <div>
+                        <dt>Encoding</dt>
+                        <dd>{activeDataset.csvImport.encoding.toUpperCase()}</dd>
+                      </div>
+                      <div>
+                        <dt>Quote</dt>
+                        <dd>{csvCharacter(activeDataset.csvImport.quote)}</dd>
+                      </div>
+                      <div>
+                        <dt>Escape</dt>
+                        <dd>{csvCharacter(activeDataset.csvImport.escape)}</dd>
+                      </div>
+                      <div>
+                        <dt>New lines</dt>
+                        <dd>{csvCharacter(activeDataset.csvImport.newLine)}</dd>
+                      </div>
+                      <div>
+                        <dt>Rows skipped</dt>
+                        <dd>{activeDataset.csvImport.skipRows}</dd>
+                      </div>
+                      <div>
+                        <dt>Detection sample</dt>
+                        <dd>{activeDataset.csvImport.sampleSize.toLocaleString()} rows</dd>
+                      </div>
+                    </dl>
+                    <p>
+                      Detection and overrides run in the same local browser worker as the query. The
+                      exported SQL keeps the chosen settings.
+                    </p>
+                  </details>
+                )}
                 <div className="panel-heading">
                   <div>
                     <p className="eyebrow">Profile</p>

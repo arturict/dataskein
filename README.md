@@ -36,6 +36,7 @@ The evidence, competitor comparison, and scope decision are documented in
 
 - Drag and drop CSV, TSV, JSON, JSONL, NDJSON, and Parquet files
 - Content checks that reject obvious extension spoofing before parsing
+- A local CSV import X-ray with explicit delimiter, header, encoding, and all-text recovery
 - Local schema and column profiling with bounded previews
 - Visual filters, sorting, column selection, and left or inner joins
 - Inspectable DuckDB SQL generated from every transformation step
@@ -76,7 +77,7 @@ pnpm release:artifact
 ```
 
 The E2E suite covers the complete sample journey, JSON and JSONL, an Apache
-Parquet interoperability fixture, a 64 MiB CSV, malformed input, file-type
+Parquet interoperability fixture, semicolon, headerless, and Latin-1 CSVs, a 64 MiB CSV, malformed input, file-type
 spoofing, spreadsheet-formula neutralization, accessibility, responsive layout,
 offline behavior, mobile console and overflow checks, and the absence of
 cross-origin requests during a source-file workflow.

@@ -128,9 +128,24 @@ export function buildRecipeExport(
     ...sourceLines,
     '',
     ...datasets.map((source) => {
+      const csvArguments = source.csvImport
+        ? [
+            `sample_size = ${source.csvImport.sampleSize}`,
+            source.csvImport.overrides.delimiter
+              ? `delim = ${quoteLiteral(source.csvImport.overrides.delimiter)}`
+              : '',
+            source.csvImport.overrides.header == null
+              ? ''
+              : `header = ${source.csvImport.overrides.header ? 'true' : 'false'}`,
+            source.csvImport.allVarchar ? 'all_varchar = true' : '',
+            source.csvImport.overrides.encoding
+              ? `encoding = ${quoteLiteral(source.csvImport.overrides.encoding)}`
+              : '',
+          ].filter(Boolean)
+        : ['sample_size = 20480'];
       const reader =
         source.kind === 'csv'
-          ? `read_csv_auto(${quoteLiteral(source.name)}, header = true, sample_size = -1)`
+          ? `read_csv_auto(${quoteLiteral(source.name)}, ${csvArguments.join(', ')})`
           : source.kind === 'json'
             ? `read_json_auto(${quoteLiteral(source.name)})`
             : `read_parquet(${quoteLiteral(source.name)})`;

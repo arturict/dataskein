@@ -1,5 +1,25 @@
 export type FileKind = 'csv' | 'json' | 'parquet';
 
+export interface CsvImportOptions {
+  delimiter?: ',' | ';' | '\t' | '|';
+  header?: boolean;
+  allVarchar?: boolean;
+  encoding?: 'utf-8' | 'latin-1' | 'utf-16';
+}
+
+export interface CsvImportDetails {
+  delimiter: string;
+  quote: string;
+  escape: string;
+  newLine: string;
+  hasHeader: boolean;
+  skipRows: number;
+  sampleSize: number;
+  allVarchar: boolean;
+  encoding: string;
+  overrides: CsvImportOptions;
+}
+
 export interface ColumnInfo {
   name: string;
   type: string;
@@ -19,6 +39,7 @@ export interface Dataset {
   fingerprint: string;
   rowCount: number;
   columns: ColumnInfo[];
+  csvImport?: CsvImportDetails;
 }
 
 export type FilterOperator =

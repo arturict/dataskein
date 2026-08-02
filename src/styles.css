@@ -1501,6 +1501,11 @@ button:disabled {
   display: block;
 }
 
+.error-recovery > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
 .error-recovery p {
   margin: 4px 0 0;
   color: #7c3931;
@@ -1522,6 +1527,144 @@ button:disabled {
 
 .error-recovery .error-dismiss {
   color: #776762;
+}
+
+.csv-recovery-controls {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(170px, 1fr) minmax(110px, 0.7fr) auto auto;
+  align-items: end;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 12px;
+  border: 1px solid #e3c6c1;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 58%);
+}
+
+.csv-recovery-controls legend {
+  padding: 0 5px;
+  color: #71332c;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.csv-recovery-controls label {
+  display: grid;
+  gap: 5px;
+  color: #71332c;
+  font-size: 0.58rem;
+  font-weight: 700;
+}
+
+.csv-recovery-controls select {
+  min-width: 0;
+  height: 34px;
+  border: 1px solid #cfaaa4;
+  border-radius: 6px;
+  color: #4f302b;
+  background: #fff;
+  font: inherit;
+}
+
+.csv-recovery-controls .csv-text-option {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.csv-recovery-controls input {
+  accent-color: var(--green);
+}
+
+.import-xray {
+  margin-bottom: 20px;
+  border: 1px solid #ccd9d2;
+  border-radius: 11px;
+  background: #f5f8f6;
+}
+
+.import-xray summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.import-xray summary::-webkit-details-marker {
+  display: none;
+}
+
+.import-xray summary strong,
+.import-xray summary small {
+  display: block;
+}
+
+.import-xray summary strong {
+  color: #304c40;
+  font-size: 0.7rem;
+}
+
+.import-xray summary small {
+  margin-top: 2px;
+  color: #56675e;
+  font-size: 0.58rem;
+}
+
+.import-xray summary > span:last-child {
+  color: var(--green);
+  font-size: 1rem;
+  transition: transform 160ms ease;
+}
+
+.import-xray[open] summary > span:last-child {
+  transform: rotate(45deg);
+}
+
+.import-xray dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 16px;
+  overflow: hidden;
+  border: 1px solid #d5e0da;
+  border-radius: 8px;
+  background: #d5e0da;
+}
+
+.import-xray dl > div {
+  min-width: 0;
+  padding: 10px;
+  background: #fff;
+}
+
+.import-xray dt {
+  color: #75837b;
+  font-size: 0.53rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.import-xray dd {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: #304c40;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-xray > p {
+  margin: 12px 16px 15px;
+  color: #697a71;
+  font-size: 0.58rem;
+  line-height: 1.5;
 }
 
 .quick-start {
@@ -2652,6 +2795,19 @@ button:disabled {
   .error-recovery > div:last-child {
     align-items: flex-start;
     flex-wrap: wrap;
+  }
+
+  .csv-recovery-controls {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
+  .csv-recovery-controls .csv-text-option {
+    white-space: normal;
+  }
+
+  .import-xray dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .quick-start-heading > div:last-child {

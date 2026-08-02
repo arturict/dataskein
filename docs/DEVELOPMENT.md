@@ -34,6 +34,8 @@ The test suite includes:
   projections, and standalone dashboard escaping;
 - a full sample path from two sources through filter, join, chart, and export;
 - real CSV, JSON, JSONL, and Apache Parquet inputs;
+- CSV dialect inspection for semicolon and headerless files plus explicit
+  Latin-1 recovery;
 - a generated 64 MiB CSV with a 250-row render cap;
 - malformed JSON and spoofed Parquet;
 - CSV formula-injection payloads;

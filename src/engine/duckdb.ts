@@ -1,6 +1,13 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
 import type { AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
-import type { ColumnInfo, Dataset, FileKind, QueryRow } from '../types';
+import type {
+  ColumnInfo,
+  CsvImportDetails,
+  CsvImportOptions,
+  Dataset,
+  FileKind,
+  QueryRow,
+} from '../types';
 import { fingerprintFile } from '../lib/files';
 import { quoteIdentifier, quoteLiteral, safeCsvProjection } from '../lib/sql';
 
@@ -54,10 +61,33 @@ function normalizeRows(table: Awaited<ReturnType<AsyncDuckDBConnection['query']>
   });
 }
 
-function readerFor(kind: FileKind, registeredName: string): string {
+const CSV_SAMPLE_SIZE = 20_480;
+
+function csvArguments(options: CsvImportOptions): string[] {
+  const argumentsList = [`sample_size = ${CSV_SAMPLE_SIZE}`];
+  if (options.delimiter) {
+    argumentsList.push(`delim = ${quoteLiteral(options.delimiter)}`);
+  }
+  if (options.header != null) {
+    argumentsList.push(`header = ${options.header ? 'true' : 'false'}`);
+  }
+  if (options.allVarchar) {
+    argumentsList.push('all_varchar = true');
+  }
+  if (options.encoding) {
+    argumentsList.push(`encoding = ${quoteLiteral(options.encoding)}`);
+  }
+  return argumentsList;
+}
+
+function readerFor(
+  kind: FileKind,
+  registeredName: string,
+  csvOptions: CsvImportOptions = {},
+): string {
   const path = quoteLiteral(registeredName);
   if (kind === 'csv') {
-    return `read_csv_auto(${path}, header = true, sample_size = -1)`;
+    return `read_csv_auto(${path}, ${csvArguments(csvOptions).join(', ')})`;
   }
   if (kind === 'json') {
     return `read_json_auto(${path}, maximum_object_size = 67108864)`;
@@ -134,6 +164,7 @@ export class DataEngine {
     file: File,
     kind: FileKind,
     reportProgress?: (progress: LoadFileProgress) => void,
+    csvOptions: CsvImportOptions = {},
   ): Promise<Dataset> {
     const { database, connection } = await this.ready();
     const id = crypto.randomUUID();
@@ -150,10 +181,35 @@ export class DataEngine {
 
     try {
       reportProgress?.({ label: 'Read rows and validate structure', current: 2, total: 4 });
+      let csvImport: CsvImportDetails | undefined;
+      if (kind === 'csv') {
+        const sniffed = normalizeRows(
+          await connection.query(
+            `SELECT Delimiter, Quote, Escape, NewLineDelimiter, SkipRows, HasHeader
+             FROM sniff_csv(${quoteLiteral(registeredName)}, ${csvArguments(csvOptions).join(', ')})`,
+          ),
+        )[0];
+        if (!sniffed) {
+          throw new Error('DuckDB could not detect a readable CSV dialect.');
+        }
+        csvImport = {
+          delimiter: scalarText(sniffed.Delimiter, csvOptions.delimiter ?? ''),
+          quote: scalarText(sniffed.Quote, ''),
+          escape: scalarText(sniffed.Escape, ''),
+          newLine: scalarText(sniffed.NewLineDelimiter, ''),
+          hasHeader: csvOptions.header ?? Boolean(sniffed.HasHeader),
+          skipRows: asFiniteNumber(sniffed.SkipRows),
+          sampleSize: CSV_SAMPLE_SIZE,
+          allVarchar: Boolean(csvOptions.allVarchar),
+          encoding: csvOptions.encoding ?? 'utf-8',
+          overrides: { ...csvOptions },
+        };
+      }
       await connection.query(
         `CREATE VIEW ${quoteIdentifier(tableName)} AS SELECT * FROM ${readerFor(
           kind,
           registeredName,
+          csvOptions,
         )}`,
       );
       const countRows = normalizeRows(
@@ -185,6 +241,7 @@ export class DataEngine {
         fingerprint,
         rowCount: asFiniteNumber(countRows[0]?.row_count),
         columns,
+        csvImport,
       };
     } catch (error) {
       await database.dropFile(registeredName).catch(() => null);

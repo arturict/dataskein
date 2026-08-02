@@ -5,6 +5,7 @@ This is a direction, not a promise or delivery schedule.
 ## Now: v0.1
 
 - local CSV, TSV, JSON, JSONL, NDJSON, and Parquet intake
+- bounded CSV dialect inspection and explicit delimiter, header, encoding, and all-text recovery
 - profiling, filters, sorts, column selection, and two-file joins
 - inspectable SQL, basic charts, small dashboards
 - safe CSV, SQL recipe, and standalone dashboard exports
@@ -16,7 +17,6 @@ Only after real user feedback:
 
 - import and validate a previously exported `.dataskein.sql` recipe,
 - recipe JSON with a versioned schema and fingerprint mismatch warnings,
-- better delimiter and encoding diagnostics,
 - optional Parquet result export,
 - recipe-level undo and reorder,
 - Firefox and WebKit CI coverage,

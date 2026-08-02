@@ -6,6 +6,15 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Show DuckDB's detected CSV delimiter, header, quote, escape, newline, skipped rows, encoding, and type mode before users trust the inferred schema.
+- Offer explicit local retries for failed CSV imports with delimiter, header, encoding, and all-text overrides.
+
+### Changed
+
+- Keep CSV detection bounded to 20,480 sampled rows and preserve the effective import overrides in exported SQL recipes.
+
 ## [0.1.7] - 2026-08-02
 
 ### Added

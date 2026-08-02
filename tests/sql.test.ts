@@ -22,6 +22,18 @@ const sales: Dataset = {
     { name: 'region', type: 'VARCHAR' },
     { name: 'revenue', type: 'DOUBLE' },
   ],
+  csvImport: {
+    delimiter: ';',
+    quote: '"',
+    escape: '"',
+    newLine: '\n',
+    hasHeader: false,
+    skipRows: 0,
+    sampleSize: 20480,
+    allVarchar: true,
+    encoding: 'latin-1',
+    overrides: { delimiter: ';', header: false, allVarchar: true, encoding: 'latin-1' },
+  },
 };
 
 const targets: Dataset = {
@@ -173,6 +185,10 @@ describe('SQL compiler', () => {
     const exported = buildRecipeExport(sales, [sales], []);
     expect(exported).toContain(`sha256 ${'a'.repeat(64)}`);
     expect(exported).toContain("read_csv_auto('sales''2026.csv'");
+    expect(exported).toContain("delim = ';'");
+    expect(exported).toContain('header = false');
+    expect(exported).toContain('all_varchar = true');
+    expect(exported).toContain("encoding = 'latin-1'");
     expect(exported).toContain('CREATE OR REPLACE VIEW "dataset_sales"');
   });
 

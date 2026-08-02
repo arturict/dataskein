@@ -82,6 +82,70 @@ test('reports malformed JSON without leaving the empty workspace', async ({ page
   await expect(page.getByRole('alert')).toContainText('broken.json', { timeout: 20_000 });
 });
 
+test('shows the detected CSV dialect for semicolon and headerless files', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto('/app');
+  const fileInput = page.locator('input[type=file]');
+  await fileInput.setInputFiles({
+    name: 'semicolon.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('name;amount\nAlpha;12\nBeta;14\n'),
+  });
+
+  await expect(page.getByRole('heading', { name: 'semicolon.csv' })).toBeVisible({
+    timeout: 45_000,
+  });
+  const importDetails = page.locator('details.import-xray');
+  await importDetails.getByText('CSV import details').click();
+  await expect(importDetails.getByText(';', { exact: true })).toBeVisible();
+  await expect(importDetails.getByText('First row', { exact: true })).toBeVisible();
+  await expect(importDetails.getByText('Detected', { exact: true })).toBeVisible();
+
+  await fileInput.setInputFiles({
+    name: 'headerless.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('1;North;101\n2;South;102\n3;East;103\n'),
+  });
+  await expect(page.getByRole('button', { name: /headerless\.csv 3 rows/ })).toBeVisible({
+    timeout: 45_000,
+  });
+  await page.getByRole('button', { name: /headerless\.csv 3 rows/ }).click();
+  const headerlessDetails = page.locator('details.import-xray');
+  if ((await headerlessDetails.getAttribute('open')) == null) {
+    await headerlessDetails.getByText('CSV import details').click();
+  }
+  await expect(headerlessDetails.getByText('No header', { exact: true })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'column0' })).toBeVisible();
+});
+
+test('recovers a Latin-1 CSV explicitly without silently skipping rows', async ({ page }) => {
+  await page.goto('/app');
+  await page.locator('input[type=file]').setInputFiles({
+    name: 'latin-one.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from([
+      0x6e, 0x61, 0x6d, 0x65, 0x2c, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x0a, 0x63, 0x61, 0x66, 0xe9,
+      0x2c, 0x31, 0x0a, 0x74, 0x68, 0xe9, 0x2c, 0x32, 0x0a,
+    ]),
+  });
+
+  const alert = page.getByRole('alert');
+  await expect(alert).toContainText('latin-one.csv', { timeout: 30_000 });
+  await expect(alert.getByText('Retry with explicit CSV settings')).toBeVisible();
+  await expect(alert.getByLabel('Delimiter')).toBeVisible();
+  await expect(alert.getByLabel('Header row')).toBeVisible();
+  await alert.getByLabel('Encoding').selectOption('latin-1');
+  await expect(alert.getByLabel('Keep every column as text')).toBeVisible();
+  await alert.getByRole('button', { name: 'Retry locally' }).click();
+  await expect(page.getByRole('heading', { name: 'latin-one.csv' })).toBeVisible({
+    timeout: 45_000,
+  });
+  await expect(page.getByRole('status')).toContainText('Previewing 2 of 2 rows');
+  const importDetails = page.locator('details.import-xray');
+  await importDetails.getByText('CSV import details').click();
+  await expect(importDetails.getByText('LATIN-1', { exact: true })).toBeVisible();
+});
+
 test('profiles a 64 MiB CSV while keeping the rendered preview capped', async ({ page }) => {
   test.setTimeout(180_000);
   await page.goto('/app');

@@ -11,6 +11,9 @@ Browser File objects
 Content sniffing and SHA-256 fingerprinting
         |
         v
+Bounded CSV dialect and schema detection
+        |
+        v
 DuckDB-Wasm single worker
         |
         +--> schema and bounded profile
@@ -29,8 +32,8 @@ rewrites `/app` to the static entry document.
 
 - `src/lib/files.ts`: size limits, signature and content checks, streaming
   SHA-256, downloads
-- `src/engine/duckdb.ts`: worker lifecycle, browser file registration, queries,
-  profiles, and safe CSV export
+- `src/engine/duckdb.ts`: worker lifecycle, browser file registration, bounded
+  CSV dialect detection, queries, profiles, and safe CSV export
 - `src/lib/sql.ts`: identifier and literal quoting, recipe compilation, chart
   queries, and formula neutralization
 - `src/components/Workspace.tsx`: product state and explicit transformation
@@ -72,6 +75,7 @@ produce an ordered immutable step list. The SQL export includes:
 
 - expected source filenames,
 - source SHA-256 fingerprints,
+- effective CSV delimiter, header, encoding, and type overrides,
 - reproducible `CREATE VIEW` statements,
 - the compiled recipe query.
 
