@@ -6,6 +6,8 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-08-02
+
 ### Added
 
 - Show real import and query stages instead of an indeterminate loading message.
@@ -89,7 +91,8 @@ All notable changes are documented here. The format follows
 - Local-first CSP, service worker, landing page, and OSS project documentation
 - Unit, integration, E2E, accessibility, security, and large-input gates
 
-[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/arturict/dataskein/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/arturict/dataskein/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/arturict/dataskein/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/arturict/dataskein/compare/v0.1.3...v0.1.4
