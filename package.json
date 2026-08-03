@@ -1,6 +1,6 @@
 {
   "name": "dataskein",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": true,
   "description": "A local-first, reproducible workspace for exploring flat files and DuckDB tables.",
   "license": "MIT",

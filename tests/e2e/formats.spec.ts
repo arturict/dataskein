@@ -81,6 +81,7 @@ test('lists a DuckDB catalog read-only and inspects a base table with bounded st
   await expect(page.getByText(/row count not scanned/)).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'order_id' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'ordered_at' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: '1.25', exact: true })).toBeVisible();
   await expect(page.getByText('not profiled', { exact: true })).toHaveCount(8);
   await expect(page.getByRole('table')).not.toHaveAttribute('aria-rowcount');
   const downloadPromise = page.waitForEvent('download');

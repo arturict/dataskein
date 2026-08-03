@@ -6,6 +6,12 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-08-03
+
+### Fixed
+
+- Render DuckDB `DECIMAL` values with their declared scale instead of exposing Apache Arrow's internal 32-bit word array.
+
 ## [0.1.8] - 2026-08-03
 
 ### Added
@@ -107,7 +113,8 @@ All notable changes are documented here. The format follows
 - Local-first CSP, service worker, landing page, and OSS project documentation
 - Unit, integration, E2E, accessibility, security, and large-input gates
 
-[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.8...HEAD
+[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/arturict/dataskein/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/arturict/dataskein/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/arturict/dataskein/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/arturict/dataskein/compare/v0.1.5...v0.1.6

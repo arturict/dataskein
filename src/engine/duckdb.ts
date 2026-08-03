@@ -29,7 +29,20 @@ export type LoadFileProgress = {
   total: number;
 };
 
-function normalizeValue(value: unknown): unknown {
+const ARROW_BIG_NUMBER = Symbol.for('isArrowBigNum');
+
+function scaledDecimal(rawValue: string, scale: number): string {
+  if (scale <= 0) {
+    return rawValue;
+  }
+  const negative = rawValue.startsWith('-');
+  const digits = (negative ? rawValue.slice(1) : rawValue).padStart(scale + 1, '0');
+  const whole = digits.slice(0, -scale);
+  const fraction = digits.slice(-scale);
+  return `${negative ? '-' : ''}${whole}.${fraction}`;
+}
+
+function normalizeValue(value: unknown, decimalScale?: number): unknown {
   if (typeof value === 'bigint') {
     const asNumber = Number(value);
     return Number.isSafeInteger(asNumber) ? asNumber : value.toString();
@@ -39,6 +52,16 @@ function normalizeValue(value: unknown): unknown {
   }
   if (value instanceof Uint8Array) {
     return `[${value.byteLength} bytes]`;
+  }
+  if (
+    value &&
+    typeof value === 'object' &&
+    Boolean((value as Record<PropertyKey, unknown>)[ARROW_BIG_NUMBER])
+  ) {
+    const rawValue = (value as { [Symbol.toPrimitive](hint: 'string'): string })[
+      Symbol.toPrimitive
+    ]('string');
+    return decimalScale == null ? rawValue : scaledDecimal(rawValue, decimalScale);
   }
   if (Array.isArray(value)) {
     return value.map(normalizeValue);
@@ -55,11 +78,27 @@ function normalizeValue(value: unknown): unknown {
 }
 
 function normalizeRows(table: Awaited<ReturnType<AsyncDuckDBConnection['query']>>): QueryRow[] {
+  const decimalScales = new Map(
+    table.schema.fields.flatMap((field) => {
+      const type = field.type as { scale?: unknown; toString(): string };
+      return typeof type.scale === 'number' && type.toString().startsWith('Decimal')
+        ? ([[field.name, type.scale]] as const)
+        : [];
+    }),
+  );
   return table.toArray().map((row) => {
     const candidate: unknown = row;
     const jsonCandidate = candidate as { toJSON?: () => unknown };
     const plain = typeof jsonCandidate.toJSON === 'function' ? jsonCandidate.toJSON() : candidate;
-    return normalizeValue(plain) as QueryRow;
+    if (!plain || typeof plain !== 'object' || Array.isArray(plain)) {
+      return normalizeValue(plain) as QueryRow;
+    }
+    return Object.fromEntries(
+      Object.entries(plain as Record<string, unknown>).map(([key, value]) => [
+        key,
+        normalizeValue(value, decimalScales.get(key)),
+      ]),
+    );
   });
 }
 
