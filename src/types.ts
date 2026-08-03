@@ -1,4 +1,4 @@
-export type FileKind = 'csv' | 'json' | 'parquet';
+export type FileKind = 'csv' | 'json' | 'parquet' | 'duckdb';
 
 export interface CsvImportOptions {
   delimiter?: ',' | ';' | '\t' | '|';
@@ -29,6 +29,34 @@ export interface ColumnInfo {
   maximum?: string;
 }
 
+export interface DatabaseRelation {
+  id: string;
+  schema: string;
+  name: string;
+  type: 'table' | 'view';
+  columnCount: number;
+  estimatedRows?: number;
+}
+
+export interface DatabaseSource {
+  id: string;
+  name: string;
+  registeredName: string;
+  catalogName: string;
+  size: number;
+  fingerprint: string;
+  relations: DatabaseRelation[];
+}
+
+export interface DatabaseRelationSource {
+  databaseId: string;
+  databaseName: string;
+  catalogName: string;
+  schema: string;
+  relation: string;
+  relationType: 'table' | 'view';
+}
+
 export interface Dataset {
   id: string;
   name: string;
@@ -37,9 +65,11 @@ export interface Dataset {
   kind: FileKind;
   size: number;
   fingerprint: string;
-  rowCount: number;
+  rowCount: number | null;
+  rowCountExact: boolean;
   columns: ColumnInfo[];
   csvImport?: CsvImportDetails;
+  databaseRelation?: DatabaseRelationSource;
 }
 
 export type FilterOperator =

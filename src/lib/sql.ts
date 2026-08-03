@@ -122,11 +122,23 @@ export function buildRecipeExport(
     (source) =>
       `-- source: ${source.name} | ${source.kind} | ${source.size} bytes | sha256 ${source.fingerprint}`,
   );
+  const databaseAttachments = Array.from(
+    new Map(
+      datasets
+        .filter((source) => source.databaseRelation)
+        .map((source) => [source.databaseRelation!.databaseId, source.databaseRelation!]),
+    ).values(),
+  ).map(
+    (source) =>
+      `ATTACH ${quoteLiteral(source.databaseName)} AS ${quoteIdentifier(source.catalogName)} (TYPE DUCKDB, READ_ONLY);`,
+  );
   return [
     '-- DataSkein reproducible recipe',
     '-- Generated locally. Keep the source files beside this SQL file or update the view paths.',
     ...sourceLines,
     '',
+    ...databaseAttachments,
+    ...(databaseAttachments.length > 0 ? [''] : []),
     ...datasets.map((source) => {
       const csvArguments = source.csvImport
         ? [
@@ -143,8 +155,15 @@ export function buildRecipeExport(
               : '',
           ].filter(Boolean)
         : ['sample_size = 20480'];
-      const reader =
-        source.kind === 'csv'
+      const reader = source.databaseRelation
+        ? [
+            source.databaseRelation.catalogName,
+            source.databaseRelation.schema,
+            source.databaseRelation.relation,
+          ]
+            .map(quoteIdentifier)
+            .join('.')
+        : source.kind === 'csv'
           ? `read_csv_auto(${quoteLiteral(source.name)}, ${csvArguments.join(', ')})`
           : source.kind === 'json'
             ? `read_json_auto(${quoteLiteral(source.name)})`

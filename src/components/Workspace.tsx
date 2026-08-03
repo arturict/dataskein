@@ -18,6 +18,8 @@ import type {
   ColumnInfo,
   CsvImportOptions,
   DashboardCard,
+  DatabaseRelation,
+  DatabaseSource,
   Dataset,
   FileKind,
   FilterOperator,
@@ -120,6 +122,14 @@ function defaultChart(columns: ColumnInfo[]): ChartSpec {
   };
 }
 
+function exportStem(dataset: Dataset): string {
+  if (dataset.databaseRelation) {
+    const databaseName = dataset.databaseRelation.databaseName.replace(/\.duckdb$/i, '');
+    return `${databaseName}-${dataset.databaseRelation.schema}-${dataset.databaseRelation.relation}`;
+  }
+  return dataset.name.replace(/\.[^.]+$/, '');
+}
+
 function stepLabel(step: TransformStep, datasets: Dataset[]): { title: string; detail: string } {
   if (step.type === 'filter') {
     return { title: 'Filter', detail: `${step.column} · ${step.operator.replaceAll('_', ' ')}` };
@@ -190,13 +200,15 @@ export function Workspace() {
   const sampleStarted = useRef(false);
   const workspaceByDataset = useRef(new Map<string, WorkspaceSnapshot>());
   const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [databaseSources, setDatabaseSources] = useState<DatabaseSource[]>([]);
   const [activeId, setActiveId] = useState('');
+  const [activeDatabaseId, setActiveDatabaseId] = useState('');
   const [steps, setSteps] = useState<TransformStep[]>([]);
   const [tab, setTab] = useState<Tab>('explore');
   const [rows, setRows] = useState<QueryRow[]>([]);
   const [columns, setColumns] = useState<ColumnInfo[]>([]);
   const [profile, setProfile] = useState<ColumnInfo[]>([]);
-  const [resultCount, setResultCount] = useState(0);
+  const [resultCount, setResultCount] = useState<number | null>(0);
   const [chartSpec, setChartSpec] = useState<ChartSpec>(() => defaultChart([]));
   const [chartData, setChartData] = useState<ChartDatum[]>([]);
   const [chartResultKey, setChartResultKey] = useState('');
@@ -228,6 +240,7 @@ export function Workspace() {
   const [csvEncoding, setCsvEncoding] = useState<'utf-8' | 'latin-1' | 'utf-16'>('utf-8');
 
   const activeDataset = datasets.find((dataset) => dataset.id === activeId);
+  const activeDatabase = databaseSources.find((source) => source.id === activeDatabaseId);
   const recipeSql = useMemo(
     () => (activeDataset ? compileRecipe(activeDataset, datasets, steps) : ''),
     [activeDataset, datasets, steps],
@@ -267,8 +280,10 @@ export function Workspace() {
       setErrorScope('');
       setCsvRecovery(null);
       let firstLoaded = '';
+      let firstDatabase = '';
       let csvFailed = false;
       const loaded: Dataset[] = [];
+      const loadedDatabases: DatabaseSource[] = [];
       for (const file of files) {
         let kind: FileKind | undefined;
         try {
@@ -276,6 +291,18 @@ export function Workspace() {
           setOperation({ label: 'Validate file type and size', current: 1, total: 5 });
           kind = await detectFileKind(file);
           setMessage(`Opening ${file.name} locally…`);
+          if (kind === 'duckdb') {
+            const databaseSource = await dataEngine.loadDatabase(file, (progress) => {
+              setOperation({
+                label: progress.label,
+                current: progress.current + 1,
+                total: progress.total + 1,
+              });
+            });
+            loadedDatabases.push(databaseSource);
+            firstDatabase ||= databaseSource.id;
+            continue;
+          }
           const dataset = await dataEngine.loadFile(
             file,
             kind,
@@ -303,11 +330,21 @@ export function Workspace() {
         setDatasets((current) => [...current, ...loaded]);
         if (!activeId) {
           setActiveId(firstLoaded);
+          setActiveDatabaseId('');
         }
         setMessage(`${loaded.length} source${loaded.length === 1 ? '' : 's'} loaded locally.`);
         if (!csvFailed) {
           setCsvRecovery(null);
         }
+      }
+      if (loadedDatabases.length > 0) {
+        setDatabaseSources((current) => [...current, ...loadedDatabases]);
+        if (!activeId && !firstLoaded) {
+          setActiveDatabaseId(firstDatabase);
+        }
+        setMessage(
+          `${loadedDatabases.length} DuckDB database${loadedDatabases.length === 1 ? '' : 's'} attached read-only.`,
+        );
       }
       setBusy(false);
       setOperation(null);
@@ -340,12 +377,13 @@ export function Workspace() {
     if (
       !sampleStarted.current &&
       datasets.length === 0 &&
+      databaseSources.length === 0 &&
       new URLSearchParams(window.location.search).get('sample') === '1'
     ) {
       sampleStarted.current = true;
       void loadSample();
     }
-  }, [datasets.length, loadSample]);
+  }, [databaseSources.length, datasets.length, loadSample]);
 
   useEffect(() => {
     if (!activeDataset || !recipeSql) {
@@ -356,7 +394,9 @@ export function Workspace() {
     setError('');
     setErrorScope('');
     setMessage('Running the visible recipe in the local worker…');
-    setOperation({ label: 'Prepare result query', current: 0, total: 4 });
+    const boundedDatabaseInspection = Boolean(activeDataset.databaseRelation);
+    const operationTotal = boundedDatabaseInspection ? 2 : 4;
+    setOperation({ label: 'Prepare result query', current: 0, total: operationTotal });
 
     void (async () => {
       try {
@@ -365,20 +405,23 @@ export function Workspace() {
           const value = await task;
           completed += 1;
           if (run === runRef.current) {
-            setOperation({ label, current: completed, total: 4 });
+            setOperation({ label, current: completed, total: operationTotal });
           }
           return value;
         };
-        const [nextColumns, nextRows, countRows] = await Promise.all([
+        const [nextColumns, nextRows] = await Promise.all([
           track('Schema detected', dataEngine.describe(recipeSql)),
           track('Preview rows ready', dataEngine.query(recipeSql, 250)),
-          track(
-            'Result rows counted',
-            dataEngine.query(`SELECT COUNT(*) AS count FROM (${recipeSql}) AS counted`),
-          ),
         ]);
-        const nextProfile = await dataEngine.profile(recipeSql, nextColumns);
-        setOperation({ label: 'Column profile ready', current: 4, total: 4 });
+        const countRows = boundedDatabaseInspection
+          ? []
+          : await track(
+              'Result rows counted',
+              dataEngine.query(`SELECT COUNT(*) AS count FROM (${recipeSql}) AS counted`),
+            );
+        const nextProfile = boundedDatabaseInspection
+          ? nextColumns
+          : await track('Column profile ready', dataEngine.profile(recipeSql, nextColumns));
         if (run !== runRef.current) {
           return;
         }
@@ -386,7 +429,8 @@ export function Workspace() {
         setKeptColumns(nextColumns.map((column) => column.name));
         setRows(nextRows);
         setProfile(nextProfile);
-        setResultCount(Number(countRows[0]?.count ?? 0));
+        const nextResultCount = boundedDatabaseInspection ? null : Number(countRows[0]?.count ?? 0);
+        setResultCount(nextResultCount);
         setChartSpec((current) => {
           const stillValidDimension = nextColumns.some(
             (column) => column.name === current.dimension,
@@ -405,9 +449,11 @@ export function Workspace() {
         setSortColumn((current) => current || nextColumns[0]?.name || '');
         setJoinLeft((current) => current || nextColumns[0]?.name || '');
         setMessage(
-          `Ready. Previewing ${Math.min(nextRows.length, 250)} of ${Number(
-            countRows[0]?.count ?? 0,
-          ).toLocaleString()} rows.`,
+          boundedDatabaseInspection
+            ? `Ready. Previewing the first ${Math.min(nextRows.length, 250)} rows. Row counts and column profiles were not scanned automatically.`
+            : `Ready. Previewing ${Math.min(nextRows.length, 250)} of ${Number(
+                countRows[0]?.count ?? 0,
+              ).toLocaleString()} rows.`,
         );
       } catch (queryError) {
         if (run === runRef.current) {
@@ -510,6 +556,7 @@ export function Workspace() {
     const nextDataset = datasets.find((dataset) => dataset.id === id);
     const savedWorkspace = workspaceByDataset.current.get(id);
     setActiveId(id);
+    setActiveDatabaseId('');
     setSteps(savedWorkspace?.steps ?? []);
     setChartSpec(savedWorkspace?.chartSpec ?? defaultChart(nextDataset?.columns ?? []));
     setDashboard(savedWorkspace?.dashboard ?? []);
@@ -521,6 +568,70 @@ export function Workspace() {
     setJoinDatasetId('');
     setJoinLeft('');
     setJoinRight('');
+  };
+
+  const selectDatabase = (id: string) => {
+    if (activeId) {
+      workspaceByDataset.current.set(activeId, {
+        steps,
+        chartSpec,
+        dashboard,
+        tab,
+      });
+    }
+    setActiveId('');
+    setActiveDatabaseId(id);
+    setMessage('Database catalog ready. Choose a base table to inspect locally.');
+    clearError();
+  };
+
+  const inspectDatabaseRelation = async (source: DatabaseSource, relation: DatabaseRelation) => {
+    if (relation.type !== 'table') {
+      return;
+    }
+    const existing = datasets.find(
+      (dataset) =>
+        dataset.databaseRelation?.databaseId === source.id &&
+        dataset.databaseRelation.schema === relation.schema &&
+        dataset.databaseRelation.relation === relation.name,
+    );
+    if (existing) {
+      selectDataset(existing.id);
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+    setErrorScope('');
+    setMessage(`Inspecting ${relation.schema}.${relation.name} locally…`);
+    setOperation({ label: 'Prepare bounded table inspection', current: 0, total: 2 });
+    try {
+      const dataset = await dataEngine.inspectDatabaseRelation(source, relation, setOperation);
+      if (activeId) {
+        workspaceByDataset.current.set(activeId, { steps, chartSpec, dashboard, tab });
+      }
+      setDatasets((current) => [...current, dataset]);
+      setActiveId(dataset.id);
+      setActiveDatabaseId('');
+      setSteps([]);
+      setChartSpec(defaultChart(dataset.columns));
+      setDashboard([]);
+      setTab('explore');
+      setKeptColumns([]);
+      setFilterColumn('');
+      setFilterValue('');
+      setSortColumn('');
+      setJoinDatasetId('');
+      setJoinLeft('');
+      setJoinRight('');
+    } catch (inspectError) {
+      setError(errorMessage(inspectError));
+      setErrorScope('import');
+      setMessage('The selected table could not be inspected.');
+    } finally {
+      setBusy(false);
+      setOperation(null);
+    }
   };
 
   const addFilter = () => {
@@ -616,7 +727,7 @@ export function Workspace() {
     }
     downloadBlob(
       buildRecipeExport(activeDataset, datasets, steps),
-      `${activeDataset.name.replace(/\.[^.]+$/, '')}.dataskein.sql`,
+      `${exportStem(activeDataset)}.dataskein.sql`,
       'text/sql;charset=utf-8',
     );
   };
@@ -635,7 +746,7 @@ export function Workspace() {
       setOperation({ label: 'Write CSV back to this device', current: 2, total: 2 });
       downloadBlob(
         Uint8Array.from(bytes).buffer,
-        `${activeDataset.name.replace(/\.[^.]+$/, '')}-dataskein.csv`,
+        `${exportStem(activeDataset)}-dataskein.csv`,
         'text/csv;charset=utf-8',
       );
       setMessage('CSV exported. Spreadsheet formula prefixes were neutralized.');
@@ -788,7 +899,7 @@ export function Workspace() {
           <div>
             <span>＋</span>
             <strong>Drop files to open locally</strong>
-            <small>CSV · TSV · JSON · JSONL · Parquet</small>
+            <small>CSV · TSV · JSON · JSONL · Parquet · DuckDB</small>
           </div>
         </div>
       )}
@@ -823,7 +934,7 @@ export function Workspace() {
         type="file"
         aria-label="Open data files"
         multiple
-        accept=".csv,.tsv,.txt,.json,.jsonl,.ndjson,.parquet"
+        accept=".csv,.tsv,.txt,.json,.jsonl,.ndjson,.parquet,.duckdb"
         onChange={handleFiles}
       />
 
@@ -838,7 +949,7 @@ export function Workspace() {
             +
           </button>
         </div>
-        {datasets.length === 0 ? (
+        {datasets.length === 0 && databaseSources.length === 0 ? (
           <button className="sidebar-dropzone" onClick={() => inputRef.current?.click()}>
             <span aria-hidden="true">⇣</span>
             <strong>Open your first file</strong>
@@ -846,6 +957,23 @@ export function Workspace() {
           </button>
         ) : (
           <ul className="source-list">
+            {databaseSources.map((source) => (
+              <li key={source.id}>
+                <button
+                  className={source.id === activeDatabaseId ? 'active' : ''}
+                  onClick={() => selectDatabase(source.id)}
+                >
+                  <span className="file-kind kind-duckdb">db</span>
+                  <span>
+                    <strong title={source.name}>{source.name}</strong>
+                    <small>
+                      {source.relations.length} relation{source.relations.length === 1 ? '' : 's'} ·{' '}
+                      {formatBytes(source.size)}
+                    </small>
+                  </span>
+                </button>
+              </li>
+            ))}
             {datasets.map((dataset) => (
               <li key={dataset.id}>
                 <button
@@ -856,7 +984,10 @@ export function Workspace() {
                   <span>
                     <strong title={dataset.name}>{dataset.name}</strong>
                     <small>
-                      {dataset.rowCount.toLocaleString()} rows · {formatBytes(dataset.size)}
+                      {dataset.rowCount == null
+                        ? 'row count not scanned'
+                        : `${dataset.rowCountExact ? '' : '≈'}${dataset.rowCount.toLocaleString()} rows`}{' '}
+                      · {formatBytes(dataset.size)}
                     </small>
                   </span>
                 </button>
@@ -880,14 +1011,14 @@ export function Workspace() {
             <div>
               <strong>You are offline.</strong>
               <p>
-                {datasets.length > 0
+                {datasets.length > 0 || databaseSources.length > 0
                   ? 'Sources already open in this tab can still be explored locally.'
                   : 'You can try a local file. A first-time browser may still need the connection to load the query engine.'}
               </p>
             </div>
           </div>
         )}
-        {datasets.length === 0 ? (
+        {datasets.length === 0 && databaseSources.length === 0 ? (
           <section className="workspace-empty">
             <div className="empty-privacy-signal">
               <span aria-hidden="true">●</span>
@@ -896,8 +1027,8 @@ export function Workspace() {
             <p className="eyebrow">Your local data workbench</p>
             <h1>Open a file. See its shape. Find the first useful answer.</h1>
             <p>
-              Start with CSV, TSV, JSON, JSONL, NDJSON, or Parquet. DataSkein checks the file,
-              profiles its columns, and prepares a bounded preview in this browser.
+              Start with CSV, TSV, JSON, JSONL, NDJSON, Parquet, or a DuckDB database. DataSkein
+              checks the file and prepares a bounded preview in this browser.
             </p>
             {operation ? (
               <OperationStatus operation={operation} message={message} />
@@ -968,6 +1099,98 @@ export function Workspace() {
               with a recovery message instead of consuming the whole tab.
             </p>
           </section>
+        ) : activeDatabase ? (
+          <section className="database-catalog" aria-labelledby="database-catalog-title">
+            <div className="catalog-heading">
+              <div>
+                <p className="eyebrow">Read-only DuckDB catalog</p>
+                <h1 id="database-catalog-title">{activeDatabase.name}</h1>
+                <p>
+                  {activeDatabase.relations.length} relation
+                  {activeDatabase.relations.length === 1 ? '' : 's'} across{' '}
+                  {new Set(activeDatabase.relations.map((relation) => relation.schema)).size} schema
+                  {new Set(activeDatabase.relations.map((relation) => relation.schema)).size === 1
+                    ? ''
+                    : 's'}{' '}
+                  · {formatBytes(activeDatabase.size)}
+                </p>
+              </div>
+              <div className="catalog-readonly-badge">
+                <span aria-hidden="true">●</span>
+                Attached read-only
+              </div>
+            </div>
+
+            <div className="catalog-safety-note" role="note">
+              <div>
+                <strong>Choose a base table to inspect.</strong>
+                <p>
+                  DataSkein reads columns and at most 250 preview rows automatically. It does not
+                  run a full row count or profile scan for database tables.
+                </p>
+              </div>
+              <p>
+                Views are listed for context but not executed because stored view SQL can reference
+                external sources.
+              </p>
+            </div>
+
+            {operation && <OperationStatus operation={operation} message={message} />}
+            {error && (
+              <div className="error-banner error-recovery" role="alert">
+                <div>
+                  <strong>{errorTitle(errorScope)}</strong>
+                  <p>{error}</p>
+                </div>
+                <button className="text-button error-dismiss" onClick={clearError}>
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            {activeDatabase.relations.length === 0 ? (
+              <div className="empty-inline catalog-empty">
+                <strong>No base tables or views were found.</strong>
+                <p>Choose another local DuckDB file or open a flat-file export instead.</p>
+                <button className="button button-dark" onClick={() => inputRef.current?.click()}>
+                  Choose another file
+                </button>
+              </div>
+            ) : (
+              <div className="relation-list" aria-label="Database relations">
+                {activeDatabase.relations.map((relation) => (
+                  <article className="relation-card" key={relation.id}>
+                    <div className="relation-card-heading">
+                      <span className={`relation-type relation-${relation.type}`}>
+                        {relation.type}
+                      </span>
+                      <span>{relation.schema}</span>
+                    </div>
+                    <h2>{relation.name}</h2>
+                    <p>
+                      {relation.columnCount.toLocaleString()} column
+                      {relation.columnCount === 1 ? '' : 's'}
+                      {relation.estimatedRows == null
+                        ? ''
+                        : ` · ≈${relation.estimatedRows.toLocaleString()} rows`}
+                    </p>
+                    <button
+                      className="button button-small button-dark"
+                      onClick={() => void inspectDatabaseRelation(activeDatabase, relation)}
+                      disabled={busy || relation.type !== 'table'}
+                      title={
+                        relation.type === 'view'
+                          ? 'Views are not executed because stored SQL can reference external sources.'
+                          : `Inspect ${relation.schema}.${relation.name}`
+                      }
+                    >
+                      {relation.type === 'table' ? 'Inspect table' : 'View listed only'}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         ) : (
           <>
             <section className="workspace-titlebar">
@@ -975,8 +1198,11 @@ export function Workspace() {
                 <p className="eyebrow">{activeDataset?.kind} source</p>
                 <h1>{activeDataset?.name}</h1>
                 <p>
-                  {resultCount.toLocaleString()} result rows · {columns.length} columns ·{' '}
-                  {steps.length} recipe {steps.length === 1 ? 'step' : 'steps'}
+                  {resultCount == null
+                    ? 'row count not scanned'
+                    : `${resultCount.toLocaleString()} result rows`}{' '}
+                  · {columns.length} columns · {steps.length} recipe{' '}
+                  {steps.length === 1 ? 'step' : 'steps'}
                 </p>
               </div>
               <div className="export-menu">
@@ -1184,7 +1410,11 @@ export function Workspace() {
                     <p className="eyebrow">Profile</p>
                     <h2>What is actually in this result?</h2>
                   </div>
-                  <p>Statistics use approximate distinct counts to keep scans bounded.</p>
+                  <p>
+                    {activeDataset?.databaseRelation
+                      ? 'Database table profiles stay off until there is an explicit opt-in.'
+                      : 'Statistics use approximate distinct counts to keep scans bounded.'}
+                  </p>
                 </div>
                 <div className="profile-grid">
                   {profile.map((column) => (

@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 
 const APACHE_ALLTYPES_DICTIONARY_PARQUET = `
 UEFSMRUEFRAVEEwVBBUEAAAAAAAAAQAAABUAFRIVEiwVBBUEFQYVCAAAAgAA
@@ -40,6 +42,93 @@ aW1lc3RhbXBfY29sFQAWBBZ+Fn4mhA4mug0AABaoCBYEAChOaW1wYWxhIHZl
 cnNpb24gMS4zLjAtSU5URVJOQUwgKGJ1aWxkIDhhNDhkZGIxZWZmODQ1OTJi
 M2ZjMDZiYzZmNTFlYzEyMGUxZmZmYzkpANMCAABQQVIx
 `.replace(/\s/g, '');
+
+const DUCKDB_CATALOG_FIXTURE = path.join(process.cwd(), 'tests', 'fixtures', 'catalog.duckdb');
+
+test('lists a DuckDB catalog read-only and inspects a base table with bounded startup work', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const externalRequests: string[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.origin !== 'http://127.0.0.1:4184') {
+      externalRequests.push(request.url());
+    }
+  });
+
+  await page.goto('/app');
+  await page.locator('input[type=file]').setInputFiles(DUCKDB_CATALOG_FIXTURE);
+
+  await expect(page.getByRole('heading', { name: 'catalog.duckdb' })).toBeVisible({
+    timeout: 45_000,
+  });
+  await expect(page.getByText('Attached read-only')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'orders', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'targets', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'order_summary', exact: true })).toBeVisible();
+  const listedView = page.locator('.relation-card').filter({ hasText: 'order_summary' });
+  await expect(listedView.getByRole('button', { name: 'View listed only' })).toBeDisabled();
+
+  const orders = page.locator('.relation-card').filter({ hasText: 'orders' });
+  await expect(orders).toContainText('4 columns');
+  await orders.getByRole('button', { name: 'Inspect table' }).click();
+
+  await expect(page.getByRole('heading', { name: 'catalog.duckdb · main.orders' })).toBeVisible({
+    timeout: 45_000,
+  });
+  await expect(page.getByRole('status')).toContainText('Previewing the first 250 rows');
+  await expect(page.getByText(/row count not scanned/)).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'order_id' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'ordered_at' })).toBeVisible();
+  await expect(page.getByText('not profiled', { exact: true })).toHaveCount(8);
+  await expect(page.getByRole('table')).not.toHaveAttribute('aria-rowcount');
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export SQL' }).click();
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+  if (!downloadPath) {
+    throw new Error('The browser did not provide a path for the DuckDB recipe download.');
+  }
+  const exportedSql = await readFile(downloadPath, 'utf8');
+  expect(exportedSql).toContain("ATTACH 'catalog.duckdb' AS \"database_");
+  expect(exportedSql).toContain('(TYPE DUCKDB, READ_ONLY);');
+  expect(exportedSql).toContain('."main"."orders"');
+  expect(externalRequests).toEqual([]);
+});
+
+test('rejects a spoofed DuckDB file before opening the catalog', async ({ page }) => {
+  await page.goto('/app');
+  await page.locator('input[type=file]').setInputFiles({
+    name: 'attack.duckdb',
+    mimeType: 'application/octet-stream',
+    buffer: Buffer.from('not a DuckDB database'),
+  });
+
+  await expect(page.getByRole('alert')).toContainText('valid DuckDB signature');
+  await expect(page.getByRole('heading', { name: 'Open a file. See its shape.' })).toBeVisible();
+});
+
+test('DuckDB catalog stays usable at a compact mobile viewport without console errors', async ({
+  page,
+}) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
+    }
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/app');
+  await page.locator('input[type=file]').setInputFiles(DUCKDB_CATALOG_FIXTURE);
+  await expect(page.getByText('Attached read-only')).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByRole('button', { name: 'Inspect table' }).first()).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+  expect(consoleErrors).toEqual([]);
+});
 
 test('opens JSON, JSONL, and an Apache Parquet interoperability fixture', async ({ page }) => {
   test.setTimeout(120_000);

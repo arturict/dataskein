@@ -23,6 +23,12 @@ describe('file validation', () => {
     await expect(detectFileKind(new File([bytes], 'tiny.parquet'))).resolves.toBe('parquet');
   });
 
+  it('accepts DuckDB magic bytes at the storage header offset', async () => {
+    const bytes = new Uint8Array(16);
+    bytes.set([0x44, 0x55, 0x43, 0x4b], 8);
+    await expect(detectFileKind(new File([bytes], 'catalog.duckdb'))).resolves.toBe('duckdb');
+  });
+
   it('rejects HTML renamed to CSV', async () => {
     await expect(
       detectFileKind(new File(['<script>alert(1)</script>'], 'attack.csv', { type: 'text/csv' })),
@@ -33,6 +39,12 @@ describe('file validation', () => {
     await expect(
       detectFileKind(new File(['PAR1not really parquet'], 'attack.parquet')),
     ).rejects.toThrow('valid Parquet signature');
+  });
+
+  it('rejects a spoofed DuckDB extension without the storage signature', async () => {
+    await expect(
+      detectFileKind(new File(['not really a database'], 'attack.duckdb')),
+    ).rejects.toThrow('valid DuckDB signature');
   });
 
   it('rejects empty, unsupported, and oversized files with bounded errors', async () => {

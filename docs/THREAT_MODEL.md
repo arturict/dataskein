@@ -26,17 +26,17 @@ Not controlled:
 
 ## Primary threats and controls
 
-| Threat                                          | Control                                                                                                               | Residual risk                                                                                  |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Source-file exfiltration                        | No backend, no analytics, same-origin CSP, cross-origin request E2E                                                   | A compromised dependency or hosting origin could bypass application intent                     |
-| Browser crash or memory exhaustion              | 1 GB file refusal, 1 GB query memory setting, one worker/thread, capped previews and chart groups                     | Complex or wide data can exhaust browser memory below 1 GB                                     |
-| File extension spoofing                         | Content checks for text, JSON prefixes, and Parquet start/end magic                                                   | Magic bytes do not prove a whole file is benign or valid                                       |
-| CSV formula injection                           | Text values beginning with `=`, `+`, `-`, or `@` after whitespace receive a leading apostrophe; all fields are quoted | Importers with unusual formula rules may behave differently                                    |
-| SQL injection through filenames or column names | Central literal and identifier quoting; no arbitrary SQL input                                                        | A DuckDB parser vulnerability remains possible                                                 |
-| HTML/script injection in dashboard export       | HTML-sensitive JSON characters and closing-script sequences are escaped; values are rendered as text                  | The exported file includes JavaScript by design and should not receive untrusted modifications |
-| Network-capable DuckDB features                 | No arbitrary SQL editor, no remote source controls, CSP restricts connections                                         | Future SQL editing or remote sources require a new review                                      |
-| Stale application shell                         | Network-first navigation service worker and versioned cache                                                           | Offline users may intentionally continue on a cached version                                   |
-| Supply-chain compromise                         | Lockfile, Dependabot, audit gate, CodeQL, minimal dependencies, release checksums                                     | Registry and action compromise cannot be eliminated                                            |
+| Threat                                          | Control                                                                                                                | Residual risk                                                                                    |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Source-file exfiltration                        | No backend, no analytics, same-origin CSP, cross-origin request E2E                                                    | A compromised dependency or hosting origin could bypass application intent                       |
+| Browser crash or memory exhaustion              | 1 GB file refusal, 1 GB query memory setting, one worker/thread, capped previews and chart groups                      | Complex or wide data can exhaust browser memory below 1 GB                                       |
+| File extension spoofing                         | Content checks for text, JSON prefixes, Parquet boundaries, and DuckDB header magic                                    | Magic bytes do not prove a whole file is benign or valid                                         |
+| CSV formula injection                           | Text values beginning with `=`, `+`, `-`, or `@` after whitespace receive a leading apostrophe; all fields are quoted  | Importers with unusual formula rules may behave differently                                      |
+| SQL injection through filenames or column names | Central literal and identifier quoting; no arbitrary SQL input                                                         | A DuckDB parser vulnerability remains possible                                                   |
+| HTML/script injection in dashboard export       | HTML-sensitive JSON characters and closing-script sequences are escaped; values are rendered as text                   | The exported file includes JavaScript by design and should not receive untrusted modifications   |
+| Network-capable DuckDB features                 | No arbitrary SQL editor or remote controls; DuckDB files attach read-only; persisted views are listed but not executed | Explicit transformations can still be expensive; future SQL or view execution needs a new review |
+| Stale application shell                         | Network-first navigation service worker and versioned cache                                                            | Offline users may intentionally continue on a cached version                                     |
+| Supply-chain compromise                         | Lockfile, Dependabot, audit gate, CodeQL, minimal dependencies, release checksums                                      | Registry and action compromise cannot be eliminated                                              |
 
 ## Security invariants
 
@@ -47,3 +47,4 @@ Not controlled:
 5. Preview and chart result sizes remain bounded.
 6. New network features, arbitrary SQL, or collaboration require an explicit
    threat-model update.
+7. A DuckDB database attachment must be verified as read-only before its catalog is shown.

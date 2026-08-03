@@ -1,7 +1,7 @@
 {
   "name": "DataSkein",
   "short_name": "DataSkein",
-  "description": "Local-first, reproducible exploration for CSV, JSON, and Parquet files.",
+  "description": "Local-first, reproducible exploration for flat files and read-only DuckDB tables.",
   "start_url": "/app",
   "display": "standalone",
   "background_color": "#f4f1e9",

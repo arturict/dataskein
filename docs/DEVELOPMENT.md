@@ -33,11 +33,12 @@ The test suite includes:
 - unit coverage for file detection, SQL quoting and compilation, formula-safe
   projections, and standalone dashboard escaping;
 - a full sample path from two sources through filter, join, chart, and export;
-- real CSV, JSON, JSONL, and Apache Parquet inputs;
+- real CSV, JSON, JSONL, Apache Parquet, and checkpointed DuckDB inputs;
 - CSV dialect inspection for semicolon and headerless files plus explicit
   Latin-1 recovery;
 - a generated 64 MiB CSV with a 250-row render cap;
-- malformed JSON and spoofed Parquet;
+- a 100,000-row DuckDB table with read-only catalog, bounded preview, disabled view execution, and no cross-origin requests;
+- malformed JSON, spoofed Parquet, and spoofed DuckDB;
 - CSV formula-injection payloads;
 - Axe WCAG A and AA checks;
 - narrow viewport overflow and browser console errors;

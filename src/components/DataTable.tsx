@@ -46,7 +46,7 @@ export function DataTable({
 }: {
   rows: QueryRow[];
   columns: ColumnInfo[];
-  totalRows: number;
+  totalRows: number | null;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
@@ -65,8 +65,12 @@ export function DataTable({
       className="data-grid"
       ref={scrollRef}
       role="table"
-      aria-label={`Data preview. ${totalRows.toLocaleString()} total rows, ${columns.length} columns.`}
-      aria-rowcount={Math.min(totalRows, Number.MAX_SAFE_INTEGER)}
+      aria-label={
+        totalRows == null
+          ? `Data preview. Total rows not scanned, ${columns.length} columns.`
+          : `Data preview. ${totalRows.toLocaleString()} total rows, ${columns.length} columns.`
+      }
+      aria-rowcount={totalRows == null ? undefined : Math.min(totalRows, Number.MAX_SAFE_INTEGER)}
       aria-colcount={columns.length}
       tabIndex={0}
     >

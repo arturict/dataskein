@@ -75,6 +75,17 @@ try {
   await workspace.getByRole('status').filter({ hasText: 'Previewing 9 of 9 rows' }).waitFor();
   await workspace.screenshot({ path: path.join(docsAssets, 'workspace.png'), fullPage: true });
 
+  const databaseCatalog = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  await databaseCatalog.goto(`${baseUrl}/app`, { waitUntil: 'networkidle' });
+  await databaseCatalog
+    .locator('input[type=file]')
+    .setInputFiles(path.join(root, 'tests', 'fixtures', 'catalog.duckdb'));
+  await databaseCatalog.getByText('Attached read-only').waitFor({ timeout: 45_000 });
+  await databaseCatalog.screenshot({
+    path: path.join(docsAssets, 'duckdb-catalog.png'),
+    fullPage: true,
+  });
+
   const social = await browser.newPage({ viewport: { width: 1200, height: 630 } });
   await social.goto(baseUrl, { waitUntil: 'networkidle' });
   await social.screenshot({ path: path.join(root, 'public', 'og.png') });

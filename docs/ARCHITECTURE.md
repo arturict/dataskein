@@ -11,12 +11,13 @@ Browser File objects
 Content sniffing and SHA-256 fingerprinting
         |
         v
-Bounded CSV dialect and schema detection
+Flat-file readers or read-only DuckDB attachment
         |
         v
 DuckDB-Wasm single worker
         |
-        +--> schema and bounded profile
+        +--> schema and bounded flat-file profile
+        +--> DuckDB catalog and bounded base-table preview
         +--> generated SQL recipe
         +--> preview limited to 250 rows
         +--> chart aggregate limited to 100 groups
@@ -33,7 +34,8 @@ rewrites `/app` to the static entry document.
 - `src/lib/files.ts`: size limits, signature and content checks, streaming
   SHA-256, downloads
 - `src/engine/duckdb.ts`: worker lifecycle, browser file registration, bounded
-  CSV dialect detection, queries, profiles, and safe CSV export
+  CSV dialect detection, explicit read-only DuckDB attachment, catalog queries,
+  profiles, and safe CSV export
 - `src/lib/sql.ts`: identifier and literal quoting, recipe compilation, chart
   queries, and formula neutralization
 - `src/components/Workspace.tsx`: product state and explicit transformation
@@ -48,6 +50,12 @@ Source rows live in the browser's File objects and DuckDB-Wasm worker. React
 state receives at most 250 preview rows, column profiles, and up to 100
 aggregated chart groups. A dashboard card stores its aggregate points and query,
 not its raw source table.
+
+DuckDB database files are attached with `READ_ONLY` and verified through
+`duckdb_databases()`. Catalog metadata lists base tables and views. Only base
+tables can be inspected in this release because evaluating stored view SQL may
+access external sources. Initial table inspection reads its columns and at most
+250 rows without an automatic full row count or profile scan.
 
 The content security policy restricts connections to the same origin and blob
 URLs. The app has no analytics SDK, remote connector, upload endpoint, or
@@ -64,6 +72,7 @@ the threat model.
 - 80 profiled columns
 - 100 chart groups
 - no arbitrary SQL input in the first release
+- no execution of persisted DuckDB views
 
 These are fail-safe controls, not performance guarantees. WebAssembly memory is
 browser-dependent and expensive joins may fail before a limit is reached.
@@ -77,6 +86,7 @@ produce an ordered immutable step list. The SQL export includes:
 - source SHA-256 fingerprints,
 - effective CSV delimiter, header, encoding, and type overrides,
 - reproducible `CREATE VIEW` statements,
+- explicit read-only `ATTACH` statements and qualified table names for DuckDB sources,
 - the compiled recipe query.
 
 Re-importing recipe files is intentionally not part of v0.1.0. The export is

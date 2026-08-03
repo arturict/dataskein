@@ -5,3 +5,4 @@
 *.gif binary
 *.wasm binary
 *.zip binary
+*.duckdb binary

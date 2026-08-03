@@ -33,6 +33,19 @@ export async function detectFileKind(file: File): Promise<FileKind> {
   const extension = extensionOf(file.name);
   const first = new Uint8Array(await file.slice(0, Math.min(file.size, 64 * 1024)).arrayBuffer());
 
+  if (extension === 'duckdb') {
+    const hasMagic =
+      first.length >= 12 &&
+      first[8] === 0x44 &&
+      first[9] === 0x55 &&
+      first[10] === 0x43 &&
+      first[11] === 0x4b;
+    if (!hasMagic) {
+      throw new Error('This .duckdb file does not contain a valid DuckDB signature.');
+    }
+    return 'duckdb';
+  }
+
   if (extension === 'parquet') {
     const last = new Uint8Array(await file.slice(Math.max(0, file.size - 4)).arrayBuffer());
     const hasMagic =
@@ -76,7 +89,9 @@ export async function detectFileKind(file: File): Promise<FileKind> {
     return 'csv';
   }
 
-  throw new Error('Unsupported or spoofed file type. Use CSV, TSV, JSON, JSONL, or Parquet.');
+  throw new Error(
+    'Unsupported or spoofed file type. Use CSV, TSV, JSON, JSONL, Parquet, or DuckDB.',
+  );
 }
 
 export async function fingerprintFile(file: File): Promise<string> {

@@ -6,14 +6,21 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-08-03
+
 ### Added
 
+- Open local `.duckdb` files as explicitly verified read-only catalogs.
+- List schemas, base tables, views, column counts, and approximate base-table row metadata.
+- Inspect selected base tables through the existing recipe workspace with a 250-row startup preview.
 - Show DuckDB's detected CSV delimiter, header, quote, escape, newline, skipped rows, encoding, and type mode before users trust the inferred schema.
 - Offer explicit local retries for failed CSV imports with delimiter, header, encoding, and all-text overrides.
 
 ### Changed
 
 - Keep CSV detection bounded to 20,480 sampled rows and preserve the effective import overrides in exported SQL recipes.
+- Skip automatic full row counts and column profiles for DuckDB tables, and list persisted views without executing their stored SQL.
+- Export reproducible DuckDB recipes with one deduplicated `ATTACH ... (READ_ONLY)` statement per database and qualified relation names.
 
 ## [0.1.7] - 2026-08-02
 
@@ -100,7 +107,8 @@ All notable changes are documented here. The format follows
 - Local-first CSP, service worker, landing page, and OSS project documentation
 - Unit, integration, E2E, accessibility, security, and large-input gates
 
-[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/arturict/dataskein/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/arturict/dataskein/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/arturict/dataskein/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/arturict/dataskein/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/arturict/dataskein/compare/v0.1.4...v0.1.5

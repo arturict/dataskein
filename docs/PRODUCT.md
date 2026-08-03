@@ -11,10 +11,10 @@ are treated as demand signals, not market-size proof.
 Build a local-first workbench for the recurring step between “I have these
 exports” and “here is an answer I can explain.”
 
-The first release serves analysts, operations specialists, technically curious
-spreadsheet users, journalists, and developers who receive local CSV, JSON,
-JSONL, or Parquet files and need to inspect, combine, shape, chart, and hand off
-a result without creating a cloud workspace.
+The first releases serve analysts, operations specialists, technically curious
+spreadsheet users, journalists, and developers who receive local flat files or
+a DuckDB database and need to inspect, combine, shape, chart, and hand off a
+result without creating a cloud workspace.
 
 The strongest wedge is not “query a CSV in the browser.” That category already
 has capable products. The wedge is a visible, ordered transformation recipe
@@ -48,6 +48,18 @@ Representative sources:
 
 These sources establish repeated pain and active interest. They do not establish
 a total addressable market, willingness to pay, or a unique moat.
+
+### Post-release scope signal
+
+After the first public release, one r/DuckDB commenter asked whether DataSkein
+could open `.duckdb` files. When asked to choose between table inspection,
+arbitrary SQL, or join sources, they answered that table inspection would be a
+good start. This is one direct qualitative signal, not demand proof. It supports
+a narrow read-only catalog and base-table preview while arguing against a SQL
+console or database administration scope.
+
+- [Scope clarification reply](https://www.reddit.com/r/DuckDB/comments/1va1u1p/comment/p1bx9cn/)
+- [Follow-up choosing table inspection](https://www.reddit.com/r/DuckDB/comments/1va1u1p/comment/p1ebh5x/)
 
 ## Jobs to be done
 
@@ -84,6 +96,7 @@ stakes, not differentiation.
 Included:
 
 - local file intake and profiling
+- read-only DuckDB catalog browsing and bounded base-table inspection
 - a compact transformation recipe
 - two-file joins
 - basic charting and dashboard snapshots
@@ -93,6 +106,7 @@ Excluded:
 
 - accounts, collaboration, cloud sync, publishing, comments, or permissions
 - remote URLs, warehouses, S3, database connectors, or extension installation
+- DuckDB writes or execution of persisted database views
 - arbitrary SQL editing, notebooks, Python, AI-generated analysis, or LLM calls
 - spreadsheet cells, formulas, pivot-table parity, or manual data editing
 - scheduled refresh, alerting, semantic layers, or full BI dashboards

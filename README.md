@@ -9,10 +9,12 @@
 
 ![DataSkein workspace showing a profiled CSV and its visible transformation recipe](docs/assets/workspace.png)
 
-DataSkein is a focused, local-first workbench for recurring CSV, JSON, JSONL, and
-Parquet exports. Open files in the browser, inspect their shape, filter and sort
-them, join related datasets, create a compact chart, and export an auditable
-result.
+![DataSkein showing schemas, tables, and a listed-only view from a local DuckDB database](docs/assets/duckdb-catalog.png)
+
+DataSkein is a focused, local-first workbench for recurring CSV, JSON, JSONL,
+Parquet, and DuckDB data. Open flat files or inspect a local DuckDB table in the
+browser, shape the result, create a compact chart, and export an auditable
+recipe.
 
 It is deliberately not a spreadsheet, a general BI suite, a cloud data
 platform, or an AI analyst.
@@ -34,10 +36,11 @@ The evidence, competitor comparison, and scope decision are documented in
 
 ## Release scope
 
-- Drag and drop CSV, TSV, JSON, JSONL, NDJSON, and Parquet files
+- Drag and drop CSV, TSV, JSON, JSONL, NDJSON, Parquet, and DuckDB files
+- Read-only DuckDB catalogs with schemas, tables, views, column counts, and bounded base-table inspection
 - Content checks that reject obvious extension spoofing before parsing
 - A local CSV import X-ray with explicit delimiter, header, encoding, and all-text recovery
-- Local schema and column profiling with bounded previews
+- Local schema and column profiling for flat files with bounded previews
 - Visual filters, sorting, column selection, and left or inner joins
 - Inspectable DuckDB SQL generated from every transformation step
 - Bar, line, and area charts with accessible descriptions
@@ -77,10 +80,11 @@ pnpm release:artifact
 ```
 
 The E2E suite covers the complete sample journey, JSON and JSONL, an Apache
-Parquet interoperability fixture, semicolon, headerless, and Latin-1 CSVs, a 64 MiB CSV, malformed input, file-type
-spoofing, spreadsheet-formula neutralization, accessibility, responsive layout,
-offline behavior, mobile console and overflow checks, and the absence of
-cross-origin requests during a source-file workflow.
+Parquet interoperability fixture, a checkpointed DuckDB database with 100,000
+rows, semicolon, headerless, and Latin-1 CSVs, a 64 MiB CSV, malformed input,
+file-type spoofing, spreadsheet-formula neutralization, accessibility,
+responsive layout, offline behavior, mobile console and overflow checks, and
+the absence of cross-origin requests during local source workflows.
 
 More detail is in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
@@ -92,7 +96,9 @@ This is a safety boundary, not a claim that every 1 GB workload will succeed.
 DuckDB-Wasm shares the browser's WebAssembly memory and storage constraints, so
 wide schemas, deeply nested JSON, expensive joins, or several large files may
 fail earlier. The UI caps previews at 250 rows and keeps query work off the main
-thread.
+thread. DuckDB tables do not receive an automatic full row count or column
+profile. Persisted views are listed but not executed because their stored SQL
+may reference external sources.
 
 ## Contributing
 

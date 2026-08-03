@@ -4,6 +4,8 @@ import type {
   ColumnInfo,
   CsvImportDetails,
   CsvImportOptions,
+  DatabaseRelation,
+  DatabaseSource,
   Dataset,
   FileKind,
   QueryRow,
@@ -92,12 +94,20 @@ function readerFor(
   if (kind === 'json') {
     return `read_json_auto(${path}, maximum_object_size = 67108864)`;
   }
-  return `read_parquet(${path})`;
+  if (kind === 'parquet') {
+    return `read_parquet(${path})`;
+  }
+  throw new Error('DuckDB database files must be opened through the read-only catalog flow.');
 }
 
 function asFiniteNumber(value: unknown): number {
   const number = typeof value === 'bigint' ? Number(value) : Number(value);
   return Number.isFinite(number) ? number : 0;
+}
+
+function optionalFiniteNumber(value: unknown): number | undefined {
+  const number = typeof value === 'bigint' ? Number(value) : Number(value);
+  return Number.isFinite(number) ? number : undefined;
 }
 
 function scalarText(value: unknown, fallback: string): string {
@@ -240,6 +250,7 @@ export class DataEngine {
         size: file.size,
         fingerprint,
         rowCount: asFiniteNumber(countRows[0]?.row_count),
+        rowCountExact: true,
         columns,
         csvImport,
       };
@@ -247,6 +258,158 @@ export class DataEngine {
       await database.dropFile(registeredName).catch(() => null);
       throw error;
     }
+  }
+
+  async loadDatabase(
+    file: File,
+    reportProgress?: (progress: LoadFileProgress) => void,
+  ): Promise<DatabaseSource> {
+    const { database, connection } = await this.ready();
+    const id = crypto.randomUUID();
+    const suffix = id.replaceAll('-', '_');
+    const registeredName = `source_${suffix}.duckdb`;
+    const catalogName = `database_${suffix}`;
+    let attached = false;
+
+    reportProgress?.({ label: 'Register database with the local worker', current: 1, total: 4 });
+    await database.registerFileHandle(
+      registeredName,
+      file,
+      duckdb.DuckDBDataProtocol.BROWSER_FILEREADER,
+      true,
+    );
+
+    try {
+      reportProgress?.({ label: 'Attach database in read-only mode', current: 2, total: 4 });
+      await connection.query(
+        `ATTACH ${quoteLiteral(registeredName)} AS ${quoteIdentifier(catalogName)} (TYPE DUCKDB, READ_ONLY)`,
+      );
+      attached = true;
+      const attachment = normalizeRows(
+        await connection.query(
+          `SELECT readonly FROM duckdb_databases() WHERE database_name = ${quoteLiteral(catalogName)}`,
+        ),
+      )[0];
+      if (attachment?.readonly !== true) {
+        throw new Error('DuckDB did not confirm the database as read-only.');
+      }
+
+      reportProgress?.({ label: 'Read schemas, tables, and views', current: 3, total: 4 });
+      const relationRows = normalizeRows(
+        await connection.query(
+          `SELECT t.table_schema, t.table_name, t.table_type, COUNT(c.column_name) AS column_count
+           FROM information_schema.tables AS t
+           LEFT JOIN information_schema.columns AS c
+             ON c.table_catalog = t.table_catalog
+            AND c.table_schema = t.table_schema
+            AND c.table_name = t.table_name
+           WHERE t.table_catalog = ${quoteLiteral(catalogName)}
+             AND t.table_type IN ('BASE TABLE', 'VIEW')
+           GROUP BY t.table_schema, t.table_name, t.table_type
+           ORDER BY t.table_schema, t.table_name`,
+        ),
+      );
+      const estimateRows = normalizeRows(
+        await connection.query(
+          `SELECT schema_name, table_name, estimated_size
+           FROM duckdb_tables()
+           WHERE database_name = ${quoteLiteral(catalogName)} AND NOT internal`,
+        ),
+      );
+      const estimates = new Map(
+        estimateRows.map((row) => [
+          `${scalarText(row.schema_name, '')}\u0000${scalarText(row.table_name, '')}`,
+          optionalFiniteNumber(row.estimated_size),
+        ]),
+      );
+      const relations: DatabaseRelation[] = relationRows.map((row) => {
+        const schema = scalarText(row.table_schema, 'main');
+        const name = scalarText(row.table_name, '');
+        const type = scalarText(row.table_type, '') === 'VIEW' ? 'view' : 'table';
+        return {
+          id: `${id}:${schema}:${name}`,
+          schema,
+          name,
+          type,
+          columnCount: asFiniteNumber(row.column_count),
+          estimatedRows: type === 'table' ? estimates.get(`${schema}\u0000${name}`) : undefined,
+        };
+      });
+
+      reportProgress?.({ label: 'Fingerprint source for reproducibility', current: 4, total: 4 });
+      const fingerprint = await fingerprintFile(file);
+
+      return {
+        id,
+        name: file.name,
+        registeredName,
+        catalogName,
+        size: file.size,
+        fingerprint,
+        relations,
+      };
+    } catch (error) {
+      if (attached) {
+        await connection.query(`DETACH ${quoteIdentifier(catalogName)}`).catch(() => null);
+      }
+      await database.dropFile(registeredName).catch(() => null);
+      throw error;
+    }
+  }
+
+  async inspectDatabaseRelation(
+    source: DatabaseSource,
+    relation: DatabaseRelation,
+    reportProgress?: (progress: LoadFileProgress) => void,
+  ): Promise<Dataset> {
+    if (relation.type !== 'table') {
+      throw new Error(
+        'Views are listed for context but are not executed because stored view SQL can reference external sources.',
+      );
+    }
+    const { connection } = await this.ready();
+    const id = crypto.randomUUID();
+    const tableName = `dataset_${id.replaceAll('-', '_')}`;
+    const qualifiedRelation = [source.catalogName, relation.schema, relation.name]
+      .map(quoteIdentifier)
+      .join('.');
+
+    reportProgress?.({ label: 'Create a local read-only relation view', current: 1, total: 2 });
+    await connection.query(
+      `CREATE VIEW ${quoteIdentifier(tableName)} AS SELECT * FROM ${qualifiedRelation}`,
+    );
+    reportProgress?.({ label: 'Read relation columns', current: 2, total: 2 });
+    const described = normalizeRows(
+      await connection.query(`DESCRIBE SELECT * FROM ${quoteIdentifier(tableName)}`),
+    );
+    const columns = described.map((row) => ({
+      name: scalarText(row.column_name, ''),
+      type: scalarText(row.column_type, 'UNKNOWN'),
+    }));
+    if (columns.length === 0) {
+      throw new Error('No columns were detected in this database relation.');
+    }
+
+    return {
+      id,
+      name: `${source.name} · ${relation.schema}.${relation.name}`,
+      registeredName: source.registeredName,
+      tableName,
+      kind: 'duckdb',
+      size: source.size,
+      fingerprint: source.fingerprint,
+      rowCount: relation.estimatedRows ?? null,
+      rowCountExact: false,
+      columns,
+      databaseRelation: {
+        databaseId: source.id,
+        databaseName: source.name,
+        catalogName: source.catalogName,
+        schema: relation.schema,
+        relation: relation.name,
+        relationType: relation.type,
+      },
+    };
   }
 
   async query(sql: string, limit?: number): Promise<QueryRow[]> {

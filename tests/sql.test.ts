@@ -18,6 +18,7 @@ const sales: Dataset = {
   size: 120,
   fingerprint: 'a'.repeat(64),
   rowCount: 3,
+  rowCountExact: true,
   columns: [
     { name: 'region', type: 'VARCHAR' },
     { name: 'revenue', type: 'DOUBLE' },
@@ -45,6 +46,7 @@ const targets: Dataset = {
   size: 80,
   fingerprint: 'b'.repeat(64),
   rowCount: 2,
+  rowCountExact: true,
   columns: [
     { name: 'region', type: 'VARCHAR' },
     { name: 'target', type: 'DOUBLE' },
@@ -203,5 +205,41 @@ describe('SQL compiler', () => {
     const exported = buildRecipeExport(json, [json, parquet], []);
     expect(exported).toContain("read_json_auto('rows.json')");
     expect(exported).toContain("read_parquet('rows.parquet')");
+  });
+
+  it('exports one read-only attachment for multiple qualified DuckDB tables', () => {
+    const databaseRelation = {
+      databaseId: 'db-source',
+      databaseName: "local'source.duckdb",
+      catalogName: 'catalog"name',
+      schema: 'odd"schema',
+      relation: 'orders',
+      relationType: 'table' as const,
+    };
+    const orders: Dataset = {
+      ...sales,
+      id: 'orders',
+      name: 'local source · odd schema.orders',
+      tableName: 'dataset_orders',
+      kind: 'duckdb',
+      rowCount: 100_000,
+      rowCountExact: false,
+      csvImport: undefined,
+      databaseRelation,
+    };
+    const targetsFromDatabase: Dataset = {
+      ...orders,
+      id: 'database-targets',
+      tableName: 'dataset_database_targets',
+      databaseRelation: { ...databaseRelation, relation: 'targets' },
+    };
+
+    const exported = buildRecipeExport(orders, [orders, targetsFromDatabase], []);
+    expect(exported.match(/ATTACH /g)).toHaveLength(1);
+    expect(exported).toContain(
+      'ATTACH \'local\'\'source.duckdb\' AS "catalog""name" (TYPE DUCKDB, READ_ONLY);',
+    );
+    expect(exported).toContain('SELECT * FROM "catalog""name"."odd""schema"."orders"');
+    expect(exported).toContain('SELECT * FROM "catalog""name"."odd""schema"."targets"');
   });
 });

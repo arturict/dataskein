@@ -26,7 +26,7 @@ const workflowSteps = [
     number: '01',
     label: 'Open',
     title: 'Drop in the awkward export.',
-    copy: 'CSV, TSV, JSON, JSONL, NDJSON, and Parquet open directly in your browser. DataSkein checks the content instead of trusting the filename.',
+    copy: 'CSV, TSV, JSON, JSONL, NDJSON, Parquet, and DuckDB files open directly in your browser. DuckDB catalogs attach read-only and only base tables can be inspected.',
   },
   {
     number: '02',
@@ -43,6 +43,11 @@ const workflowSteps = [
 ];
 
 const faqs = [
+  {
+    question: 'What does DuckDB file support include?',
+    answer:
+      'Open a local .duckdb file to list schemas, tables, and views. Base tables can be inspected with a 250-row preview. Views are listed but not executed, and there is no SQL console or database write path.',
+  },
   {
     question: 'Does DataSkein upload my files?',
     answer:
@@ -99,8 +104,8 @@ export function LandingPage() {
               From awkward files to <em>reproducible</em> answers.
             </h1>
             <p className="showcase-hero-lede">
-              Open CSV, JSON, and Parquet in your browser. Profile, filter, join, chart, and export
-              the result while the source files stay on your device.
+              Open CSV, JSON, Parquet, and DuckDB tables in your browser. Profile, filter, join,
+              chart, and export while the source files stay on your device.
             </p>
             <div className="showcase-actions">
               <a className="showcase-button showcase-button-primary" href="/app?sample=1">
@@ -173,6 +178,7 @@ export function LandingPage() {
             <span>.jsonl</span>
             <span>.ndjson</span>
             <span>.parquet</span>
+            <span>.duckdb</span>
           </div>
         </section>
 
