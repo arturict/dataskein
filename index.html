@@ -8,6 +8,7 @@
       name="description"
       content="DataSkein is an open-source, local-first workspace for profiling, transforming, and charting flat files plus inspecting DuckDB tables read-only."
     />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="DataSkein: Follow the thread in your data" />
     <meta
@@ -51,7 +52,35 @@
     </script>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <title>DataSkein: Local-first data exploration</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": ["SoftwareApplication", "SoftwareSourceCode"],
+        "name": "DataSkein",
+        "url": "https://dataskein.vercel.app/",
+        "codeRepository": "https://github.com/arturict/dataskein",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Web",
+        "softwareVersion": "0.1.9",
+        "license": "https://opensource.org/license/mit",
+        "isAccessibleForFree": true,
+        "description": "An open-source, local-first browser workspace for profiling, transforming, joining, charting, and exporting CSV, JSON, JSONL, Parquet, and read-only DuckDB data.",
+        "featureList": [
+          "Local CSV, TSV, JSON, JSONL, and Parquet exploration",
+          "Read-only DuckDB table inspection",
+          "Visible transformation recipes",
+          "Charts and small dashboards",
+          "Reproducible SQL and HTML export",
+          "Zero source-file uploads"
+        ],
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
+    <title>DataSkein — Local-first CSV, JSON and Parquet explorer</title>
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
