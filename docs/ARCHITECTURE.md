@@ -57,9 +57,10 @@ tables can be inspected in this release because evaluating stored view SQL may
 access external sources. Initial table inspection reads its columns and at most
 250 rows without an automatic full row count or profile scan.
 
-The content security policy restricts connections to the same origin and blob
-URLs. The app has no analytics SDK, remote connector, upload endpoint, or
-dynamic extension installer. A browser extension, compromised device, malicious
+The workspace has no analytics SDK, remote connector, upload endpoint, or
+dynamic extension installer. The public landing route alone loads a self-hosted
+Umami tracker for aggregate landing-page events; it never receives file contents
+or workspace actions. A browser extension, compromised device, malicious
 dependency, or compromised hosting origin remains outside this guarantee; see
 the threat model.
 

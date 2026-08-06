@@ -51,12 +51,19 @@ The evidence, competitor comparison, and scope decision are documented in
 - Stage-based local import and query progress with contextual recovery actions
 - A resumable first-result guide and explicit loaded-session offline state
 - A single browser worker, a 1 GB per-file limit, and a 1 GB query memory cap
-- No account, analytics, cookies, upload endpoint, or remote database connector
+- No account, workspace analytics, cookies, upload endpoint, or remote database connector
 
 Source files are registered with DuckDB-Wasm through the browser File API.
 DataSkein does not intentionally transmit them. See [SECURITY.md](SECURITY.md)
 for the exact trust boundary and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 for the data flow.
+
+The separate public landing page uses our self-hosted Umami instance for
+aggregate page, bounded CTA, section, scroll-depth, and engaged-time events. It
+respects Do Not Track and Global Privacy Control, sets no analytics cookies, and
+never receives source-file contents or workspace actions. URLs are reduced to
+the landing root plus safe, bounded standard UTM values, and referrer paths are
+removed before sending.
 
 ## Quick start
 

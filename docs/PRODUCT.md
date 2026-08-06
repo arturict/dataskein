@@ -124,5 +124,8 @@ The project should next learn whether users:
 - can recover from malformed files without support,
 - ask for recipe re-import before asking for broad BI features.
 
-No analytics are installed. Early learning therefore relies on issues, launch
-feedback, and explicit user reports.
+The workspace has no analytics. Aggregate, cookie-free analytics on the separate
+public landing page measure page visits and a bounded set of CTA, section,
+scroll-depth, and engaged-time events. Product learning still relies on issues,
+launch feedback, and explicit user reports because no file or workspace actions
+are collected.

@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import workspaceScreenshot from '../../docs/assets/workspace.png';
+import { startLandingAnalytics } from '../lib/landingAnalytics';
 import { Brand } from './Brand';
 import './landing.css';
 
@@ -51,7 +53,7 @@ const faqs = [
   {
     question: 'Does DataSkein upload my files?',
     answer:
-      'No. Local files are registered with DuckDB-Wasm inside your browser. The application has no upload endpoint, account system, analytics, cookies, or remote data connector.',
+      'No. Local files are registered with DuckDB-Wasm inside your browser. The workspace has no upload endpoint, account system, analytics, cookies, or remote data connector. The separate public landing page uses cookie-free aggregate analytics and never receives file contents.',
   },
   {
     question: 'How large can a file be?',
@@ -71,6 +73,19 @@ const faqs = [
 ];
 
 export function LandingPage() {
+  useEffect(
+    () =>
+      startLandingAnalytics({
+        websiteId:
+          import.meta.env.VITE_UMAMI_WEBSITE_ID ??
+          (window.location.hostname === 'dataskein.vercel.app' && window.location.pathname === '/'
+            ? '18623db1-2e71-4174-b8ea-57a574dff271'
+            : ''),
+        scriptUrl: import.meta.env.VITE_UMAMI_SCRIPT_URL ?? 'https://umami.arturf.ch/script.js',
+      }),
+    [],
+  );
+
   return (
     <div className="showcase">
       <header className="showcase-nav">
@@ -83,7 +98,13 @@ export function LandingPage() {
           <a href="#privacy">Privacy</a>
           <a href="https://github.com/arturict/dataskein">GitHub</a>
         </nav>
-        <a className="showcase-nav-cta" href="/app">
+        <a
+          className="showcase-nav-cta"
+          href="/app"
+          data-analytics-action="open-app"
+          data-analytics-location="nav"
+          data-analytics-target="app"
+        >
           Open app
           <ArrowIcon />
         </a>
@@ -94,7 +115,13 @@ export function LandingPage() {
           <div className="hero-aura" aria-hidden="true" />
           <div className="hero-grid" aria-hidden="true" />
           <div className="showcase-hero-copy">
-            <a className="release-pill" href="https://github.com/arturict/dataskein/releases">
+            <a
+              className="release-pill"
+              href="https://github.com/arturict/dataskein/releases"
+              data-analytics-action="view-release"
+              data-analytics-location="hero"
+              data-analytics-target="releases"
+            >
               <span>New</span>
               Open source and MIT licensed
               <ArrowIcon />
@@ -108,11 +135,23 @@ export function LandingPage() {
               chart, and export while the source files stay on your device.
             </p>
             <div className="showcase-actions">
-              <a className="showcase-button showcase-button-primary" href="/app?sample=1">
+              <a
+                className="showcase-button showcase-button-primary"
+                href="/app?sample=1"
+                data-analytics-action="explore-sample"
+                data-analytics-location="hero"
+                data-analytics-target="sample"
+              >
                 Explore the sample
                 <ArrowIcon />
               </a>
-              <a className="showcase-button showcase-button-secondary" href="/app">
+              <a
+                className="showcase-button showcase-button-secondary"
+                href="/app"
+                data-analytics-action="open-app"
+                data-analytics-location="hero"
+                data-analytics-target="app"
+              >
                 Open your files
               </a>
             </div>
@@ -182,7 +221,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="product-section" id="product">
+        <section className="product-section" id="product" data-analytics-section="product">
           <div className="section-heading section-heading-centered">
             <p className="showcase-kicker">One focused workbench</p>
             <h2>Understand the file before you trust the answer.</h2>
@@ -326,7 +365,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="workflow-section" id="workflow">
+        <section className="workflow-section" id="workflow" data-analytics-section="workflow">
           <div className="section-heading">
             <p className="showcase-kicker">A short path to clarity</p>
             <h2>File in. Method visible. Answer out.</h2>
@@ -352,16 +391,22 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="privacy-section-new" id="privacy">
+        <section className="privacy-section-new" id="privacy" data-analytics-section="privacy">
           <div className="privacy-glow" aria-hidden="true" />
           <div className="privacy-copy">
             <p className="showcase-kicker">Private by architecture</p>
             <h2>Your data has no trip to make.</h2>
             <p>
-              DataSkein is a static web application. Queries run in one local browser worker, and
-              the network policy only allows the application to load its own resources.
+              Queries run in one local browser worker. The workspace has no analytics or file
+              telemetry; this public landing page sends cookie-free, aggregate usage events to our
+              self-hosted Umami instance and never receives your source files.
             </p>
-            <a href="https://github.com/arturict/dataskein/blob/main/docs/THREAT_MODEL.md">
+            <a
+              href="https://github.com/arturict/dataskein/blob/main/docs/THREAT_MODEL.md"
+              data-analytics-action="read-threat-model"
+              data-analytics-location="privacy"
+              data-analytics-target="threat-model"
+            >
               Read the threat model
               <ArrowIcon />
             </a>
@@ -396,7 +441,7 @@ export function LandingPage() {
             </div>
             <div>
               <dt>0</dt>
-              <dd>trackers</dd>
+              <dd>workspace trackers</dd>
             </div>
             <div>
               <dt>0</dt>
@@ -409,7 +454,7 @@ export function LandingPage() {
           </dl>
         </section>
 
-        <section className="principles-section">
+        <section className="principles-section" data-analytics-section="principles">
           <div className="section-heading">
             <p className="showcase-kicker">Deliberately not a platform</p>
             <h2>The useful middle between a viewer and BI.</h2>
@@ -437,7 +482,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="faq-section">
+        <section className="faq-section" data-analytics-section="faq">
           <div className="section-heading">
             <p className="showcase-kicker">Questions, answered</p>
             <h2>Short answers before you open a file.</h2>
@@ -456,20 +501,29 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="showcase-final-cta">
+        <section className="showcase-final-cta" data-analytics-section="final">
           <div className="cta-thread cta-thread-one" aria-hidden="true" />
           <div className="cta-thread cta-thread-two" aria-hidden="true" />
           <p className="showcase-kicker">No signup. No upload. No lock-in.</p>
           <h2>Bring the awkward file.</h2>
           <p>See what is inside, keep track of what you changed, and take the answer with you.</p>
           <div className="showcase-actions">
-            <a className="showcase-button showcase-button-accent" href="/app?sample=1">
+            <a
+              className="showcase-button showcase-button-accent"
+              href="/app?sample=1"
+              data-analytics-action="explore-sample"
+              data-analytics-location="final"
+              data-analytics-target="sample"
+            >
               Explore the sample
               <ArrowIcon />
             </a>
             <a
               className="showcase-button showcase-button-dark-ghost"
               href="https://github.com/arturict/dataskein"
+              data-analytics-action="view-source"
+              data-analytics-location="final"
+              data-analytics-target="github"
             >
               <GitHubIcon />
               View on GitHub
@@ -502,7 +556,7 @@ export function LandingPage() {
             <a href="https://github.com/arturict/dataskein/blob/main/docs/THREAT_MODEL.md">
               Threat model
             </a>
-            <span>No tracking or cookies</span>
+            <span>No workspace tracking; cookie-free landing analytics</span>
           </div>
         </nav>
         <p className="footer-note">Built in Switzerland · Source files stay on your device.</p>
