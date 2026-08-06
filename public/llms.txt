@@ -1,0 +1,20 @@
+# DataSkein
+
+> DataSkein is an open-source, local-first browser workspace for exploring CSV, TSV, JSON, JSONL, Parquet, and read-only DuckDB data without uploading source files.
+
+## Product facts
+
+- Category: local-first data exploration and reproducible analysis
+- Runtime: browser with DuckDB-Wasm
+- Inputs: CSV, TSV, JSON, JSONL, NDJSON, Parquet, and read-only DuckDB tables
+- Workflow: profile, filter, sort, select columns, join, chart, and export
+- Reproducibility: visible ordered recipes plus SQL and HTML export
+- Privacy boundary: source files remain in the browser worker
+- License: MIT
+
+## Primary links
+
+- Product: https://dataskein.vercel.app/
+- App: https://dataskein.vercel.app/app
+- Source: https://github.com/arturict/dataskein
+- Releases: https://github.com/arturict/dataskein/releases

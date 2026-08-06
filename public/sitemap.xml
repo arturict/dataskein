@@ -2,10 +2,12 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://dataskein.vercel.app/</loc>
+    <lastmod>2026-08-06</lastmod>
     <changefreq>monthly</changefreq>
   </url>
   <url>
     <loc>https://dataskein.vercel.app/app</loc>
+    <lastmod>2026-08-06</lastmod>
     <changefreq>monthly</changefreq>
   </url>
 </urlset>
