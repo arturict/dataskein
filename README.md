@@ -1,3 +1,5 @@
+
+
 # DataSkein
 
 **Follow the thread in your data without sending the source files away.**
@@ -74,7 +76,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Then open `http://localhost:5173`. Use the built-in sample or drop your own
+Then open `http://localhost:5173/app`. Use the built-in sample or drop your own
 files into the workspace.
 
 ## Quality gates
