@@ -23,10 +23,8 @@ test('landing page presents the focused product and working navigation', async (
     'content',
     'https://dataskein.vercel.app/og.png',
   );
-  const structuredData = await page
-    .locator('script[type="application/ld+json"]')
-    .evaluate((element) => element.textContent ?? '');
-  expect(structuredData).toContain('SoftwareApplication');
+  const structuredData = await page.locator('script[type="application/ld+json"]').allTextContents();
+  expect(structuredData.some((entry) => entry.includes('SoftwareApplication'))).toBe(true);
   const llms = await page.request.get('/llms.txt');
   expect(llms.ok()).toBe(true);
   expect(await llms.text()).toContain('local-first data exploration and reproducible analysis');
