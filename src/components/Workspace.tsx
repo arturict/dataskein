@@ -726,7 +726,12 @@ export function Workspace() {
       return;
     }
     downloadBlob(
-      buildRecipeExport(activeDataset, datasets, steps),
+      buildRecipeExport(
+        activeDataset,
+        datasets,
+        steps,
+        chartQuerySql && chartResultKey === chartQuerySql ? chartQuerySpec : undefined,
+      ),
       `${exportStem(activeDataset)}.dataskein.sql`,
       'text/sql;charset=utf-8',
     );

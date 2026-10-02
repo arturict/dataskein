@@ -1,0 +1,21 @@
+{
+  "sources": {
+    "monthly-orders.csv": "723e528b669ec1a1a233a8b21181b22aecf1e0ca4d99794665ecf5b1f3d6abe2",
+    "region-teams.csv": "850c661dd64b312f1df19d1169d9de135ace20d5d6dbfc03e4ee10bded6f7a11"
+  },
+  "rowCount": 4,
+  "answer": [
+    {
+      "label": "East",
+      "value": 300
+    },
+    {
+      "label": "North",
+      "value": 250
+    },
+    {
+      "label": "South",
+      "value": 200
+    }
+  ]
+}

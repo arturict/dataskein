@@ -117,6 +117,7 @@ export function buildRecipeExport(
   dataset: Dataset,
   datasets: Dataset[],
   steps: TransformStep[],
+  chart?: ChartSpec,
 ): string {
   const sourceLines = datasets.map(
     (source) =>
@@ -171,7 +172,15 @@ export function buildRecipeExport(
       return `CREATE OR REPLACE VIEW ${quoteIdentifier(source.tableName)} AS SELECT * FROM ${reader};`;
     }),
     '',
+    '-- Shaped rows',
     `${compileRecipe(dataset, datasets, steps)};`,
+    ...(chart
+      ? [
+          '',
+          '-- Current chart answer',
+          `${compileChartQuery(compileRecipe(dataset, datasets, steps), chart)};`,
+        ]
+      : []),
     '',
   ].join('\n');
 }

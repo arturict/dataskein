@@ -1,0 +1,8 @@
+order_id,region,net_revenue,status
+1007,North,120,paid
+1008,South,90,paid
+1009,East,400,paid
+1010,North,60,paid
+1011,East,20,open
+1012,South,110,paid
+1013,West,50,paid

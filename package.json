@@ -33,7 +33,8 @@
     "audit": "pnpm audit --audit-level high",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build",
     "release:artifact": "node scripts/package-release.mjs",
-    "screenshots": "node scripts/capture-screenshots.mjs"
+    "screenshots": "node scripts/capture-screenshots.mjs",
+    "demo:replay": "node scripts/replay-demo.mjs"
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "1.32.0",
