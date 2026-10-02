@@ -15,6 +15,10 @@ pnpm dev
 
 ## Gates
 
+For a synthetic recurring-export exercise and a fresh-engine SQL replay, see
+[Recurring export demo](RECURRING_EXPORT_DEMO.md). Run `pnpm demo:replay` to
+check its September fixture without opening a browser.
+
 ```bash
 pnpm format:check
 pnpm lint

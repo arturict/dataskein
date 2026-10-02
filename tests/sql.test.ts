@@ -207,6 +207,22 @@ describe('SQL compiler', () => {
     expect(exported).toContain("read_parquet('rows.parquet')");
   });
 
+  it('includes a chart answer only when supplied by the workspace', () => {
+    const chart: ChartSpec = {
+      id: 'chart',
+      title: 'Revenue by region',
+      type: 'bar',
+      dimension: 'region',
+      measure: 'revenue',
+      aggregation: 'sum',
+    };
+    const exported = buildRecipeExport(sales, [sales], [], chart);
+    expect(exported).toContain('-- Shaped rows');
+    expect(exported).toContain('-- Current chart answer');
+    expect(exported).toContain(`${compileChartQuery(compileRecipe(sales, [sales], []), chart)};`);
+    expect(buildRecipeExport(sales, [sales], [])).not.toContain('-- Current chart answer');
+  });
+
   it('exports one read-only attachment for multiple qualified DuckDB tables', () => {
     const databaseRelation = {
       databaseId: 'db-source',

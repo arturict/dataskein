@@ -6,6 +6,15 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Add a synthetic recurring CSV walkthrough, two monthly exports, expected answers, and a local recipe replay command for user validation sessions.
+
+### Fixed
+
+- Include the current chart's grouped answer in SQL exports after its query succeeds, so replay reproduces the chart as well as the shaped rows.
+- Raise development-transitive `brace-expansion` and `undici` overrides to patched versions so the high-severity dependency audit passes.
+
 ## [0.1.9] - 2026-08-03
 
 ### Fixed
